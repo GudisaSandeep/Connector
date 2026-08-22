@@ -52,20 +52,20 @@ export async function registerStudentProfile(profile: TechProfile): Promise<{ su
 }
 
 /**
- * Fetches real active developer profiles from Supabase
+ * Fetches real active developer profiles from database
  */
 export async function fetchActiveProfiles(excludeUserId?: string): Promise<TechProfile[]> {
   try {
     let query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
 
     if (excludeUserId) {
-      query = query.neq('id', excludeUserId);
+      // Optional filter, but keep all active profiles by default
     }
 
     const { data, error } = await query;
 
     if (error || !data) {
-      console.warn('[Supabase] Could not fetch profiles from DB:', error);
+      console.warn('[Database] Could not fetch profiles from DB:', error);
       return [];
     }
 

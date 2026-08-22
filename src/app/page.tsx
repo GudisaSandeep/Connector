@@ -71,17 +71,12 @@ export default function Home() {
     minSynergyScore: 60
   });
 
-  // Load Real Profiles from Supabase on mount
+  // Load Real Profiles from database on mount
   const loadRealProfiles = useCallback(async (activeUser: TechProfile) => {
     try {
-      const realFromDb = await fetchActiveProfiles(activeUser.id);
+      const realFromDb = await fetchActiveProfiles();
       if (realFromDb && realFromDb.length > 0) {
-        // Merge real DB profiles with mock fallback deck (avoiding duplicates)
-        const existingIds = new Set(realFromDb.map(p => p.id));
-        const nonDuplicateMocks = PROFILES_DECK.filter(p => !existingIds.has(p.id) && p.id !== activeUser.id);
-        const combined = [...realFromDb, ...nonDuplicateMocks];
-
-        const scored = combined.map(p => {
+        const scored = realFromDb.map(p => {
           const syn = calculateSynergy(activeUser, p);
           return {
             ...p,
@@ -96,7 +91,7 @@ export default function Home() {
         setDbConnected(true);
       }
     } catch (e) {
-      console.warn('[Supabase] Falling back to local profiles:', e);
+      console.warn('Could not load real profiles from database:', e);
     }
   }, []);
 
@@ -323,12 +318,12 @@ export default function Home() {
         />
       </main>
 
-      {/* Minimal Footer with Realtime Supabase Indicator & Terms */}
+      {/* Minimal Footer with Realtime Network Indicator & Terms */}
       <footer className="py-3 text-center text-[11px] text-slate-500 font-mono select-none border-t border-white/5 bg-[#0b0d13]">
         <div className="flex items-center justify-center gap-3">
           <span className="flex items-center gap-1.5 text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Supabase Live Sync
+            Live Network
           </span>
           <span>•</span>
           <span>Connecter • Tinder for Tech Students</span>

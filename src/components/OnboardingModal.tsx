@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { TechProfile, IntentType, ExperienceLevel } from '@/types';
+import { parseResumeFile } from '@/lib/resumeParser';
 import { GithubIcon, LinkedinIcon } from './icons';
 import { 
   Flame, 
@@ -20,7 +21,10 @@ import {
   Plus,
   X,
   Globe,
-  Trash2
+  Trash2,
+  Upload,
+  Image as ImageIcon,
+  FileCheck2
 } from 'lucide-react';
 
 interface OnboardingModalProps {
@@ -35,10 +39,13 @@ export function OnboardingModal({
   onViewTerms
 }: OnboardingModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State
+  // Form State - Step 1
   const [name, setName] = useState('');
   const [handle, setHandle] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [university, setUniversity] = useState('');
   const [major, setMajor] = useState('Computer Science');
   const [gradYear, setGradYear] = useState<number>(2026);
@@ -46,21 +53,23 @@ export function OnboardingModal({
   const [isRemoteAvailable, setIsRemoteAvailable] = useState(true);
   const [primaryRole, setPrimaryRole] = useState<'Frontend' | 'Backend' | 'Full-Stack' | 'AI / ML Engineer' | 'Mobile Dev' | 'Systems / DevOps' | 'UI/UX & Product'>('Full-Stack');
   
-  // Step 2 State
+  // Step 2 State - Skills & Resume
   const [selectedIntents, setSelectedIntents] = useState<IntentType[]>(['Hackathon Teammate', 'Startup Co-Founder']);
   const [selectedSkills, setSelectedSkills] = useState<string[]>(['TypeScript', 'React', 'Next.js', 'Python', 'TailwindCSS']);
   const [customSkillInput, setCustomSkillInput] = useState('');
   const [tagline, setTagline] = useState('');
   const [bio, setBio] = useState('');
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const [isParsingResume, setIsParsingResume] = useState(false);
+  const [resumeParseNotice, setResumeParseNotice] = useState<string | null>(null);
 
-  // Step 3 State
+  // Step 3 State - Socials & Custom Links
   const [githubUser, setGithubUser] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [customLinks, setCustomLinks] = useState<{ label: string; url: string }[]>([]);
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
   const [isEnriching, setIsEnriching] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
@@ -122,6 +131,52 @@ export function OnboardingModal({
     setCustomLinks(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Profile Picture File Upload Handler
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setAvatarUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Resume File Upload & Parsing Handler
+  const handleResumeFile = async (file: File) => {
+    setResumeFileName(file.name);
+    setIsParsingResume(true);
+    setResumeParseNotice(null);
+
+    try {
+      const result = await parseResumeFile(file);
+      if (result.extractedSkills.length > 0) {
+        setSelectedSkills(prev => Array.from(new Set([...prev, ...result.extractedSkills])));
+        if (result.suggestedRole) {
+          setPrimaryRole(result.suggestedRole);
+        }
+        setResumeParseNotice(`✨ Extracted ${result.extractedSkills.length} skills & matched ${result.suggestedRole} from your resume!`);
+      } else {
+        setResumeParseNotice(`📄 Resume attached! Added to your verified profile.`);
+      }
+    } catch (err) {
+      console.warn('Resume parse error:', err);
+      setResumeParseNotice('📄 Resume attached successfully.');
+    } finally {
+      setIsParsingResume(false);
+    }
+  };
+
+  const handleResumeDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleResumeFile(e.dataTransfer.files[0]);
+    }
+  };
+
   // Quick auto-enrich from GitHub handle
   const handleAutoEnrich = async () => {
     if (!githubUser.trim()) return;
@@ -131,7 +186,7 @@ export function OnboardingModal({
       if (res.ok) {
         const data = await res.json();
         if (data.name && !name) setName(data.name);
-        if (data.avatar_url) setAvatarUrl(data.avatar_url);
+        if (data.avatar_url && !avatarUrl) setAvatarUrl(data.avatar_url);
         if (data.blog && !portfolioUrl) setPortfolioUrl(data.blog);
         if (data.bio && !tagline) setTagline(data.bio.slice(0, 100));
         if (data.bio && !bio) setBio(data.bio);
@@ -151,7 +206,7 @@ export function OnboardingModal({
     const fallbackAvatar = avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80`;
 
     const newProfile: TechProfile = {
-      id: `user-me-${Date.now()}`,
+      id: `user-${Date.now()}`,
       name: name.trim() || 'Tech Student',
       handle: handle.trim().startsWith('@') ? handle.trim() : `@${handle.trim() || cleanGh}`,
       avatar: fallbackAvatar,
@@ -241,7 +296,7 @@ export function OnboardingModal({
               <span className="font-extrabold text-sm text-white tracking-tight">
                 Welcome to Connector
               </span>
-              <p className="text-[11px] text-slate-400">Step {step} of 3 • Set Up Your Dev Card</p>
+              <p className="text-[11px] text-slate-400">Step {step} of 3 • Create Your Real Dev Profile</p>
             </div>
           </div>
 
@@ -261,14 +316,70 @@ export function OnboardingModal({
           </div>
         </div>
 
-        {/* STEP 1: Identity & School */}
+        {/* STEP 1: Identity, Photo & School */}
         {step === 1 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">Who are you?</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Let fellow student developers know your background and what you build.
+                Set up your real profile card for student developer matching.
               </p>
+            </div>
+
+            {/* Optional Profile Picture Upload */}
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3.5">
+              <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-black/40 border border-white/10 flex-shrink-0 flex items-center justify-center">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-7 h-7 text-slate-500" />
+                )}
+              </div>
+
+              <div className="flex-1 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-[#FD297B]" />
+                    Profile Picture (Optional)
+                  </span>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl('')}
+                      className="text-[10px] text-red-400 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400">Upload a photo or auto-pull via GitHub handle.</p>
+                
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-white font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Image</span>
+                  </button>
+                  <input 
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <input 
+                    type="text"
+                    placeholder="Or paste image URL..."
+                    value={avatarUrl.startsWith('data:') ? '' : avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FD297B]"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -377,21 +488,59 @@ export function OnboardingModal({
                 disabled={!name.trim() || !university.trim()}
                 className="px-6 py-3 rounded-full tinder-gradient disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-[#FD297B]/25 flex items-center gap-2 active:scale-95 transition-all"
               >
-                <span>Continue to Skills</span>
+                <span>Continue to Skills & Resume</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 2: Skills & Intents */}
+        {/* STEP 2: Resume Parser, Skills & Intents */}
         {step === 2 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">Your Skills & Match Goals</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Our AI synergy engine uses these to match you with complementary teammates.
+                Drop your resume to auto-fill your top stacks, or select them manually.
               </p>
+            </div>
+
+            {/* Drag & Drop Resume Upload Zone */}
+            <div 
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleResumeDrop}
+              onClick={() => resumeInputRef.current?.click()}
+              className="p-4 rounded-2xl border-2 border-dashed border-white/20 hover:border-[#20D5A0] bg-white/5 hover:bg-[#20D5A0]/5 transition-all cursor-pointer text-center space-y-2 group"
+            >
+              <input 
+                ref={resumeInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt,.json,.doc"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleResumeFile(e.target.files[0]);
+                }}
+                className="hidden"
+              />
+
+              <div className="w-10 h-10 mx-auto rounded-xl bg-white/10 group-hover:bg-[#20D5A0]/20 group-hover:text-[#20D5A0] text-slate-300 flex items-center justify-center transition-colors">
+                <FileText className="w-5 h-5" />
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-white">
+                  {resumeFileName ? `Attached: ${resumeFileName}` : 'Drag & Drop your Resume (PDF / DOCX / TXT)'}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {isParsingResume ? 'Scanning resume for technologies...' : 'Auto-extracts languages, frameworks, cloud tools & projects'}
+                </p>
+              </div>
+
+              {resumeParseNotice && (
+                <div className="p-2 rounded-xl bg-[#20D5A0]/15 border border-[#20D5A0]/30 text-emerald-300 text-[11px] font-semibold flex items-center justify-center gap-1.5">
+                  <FileCheck2 className="w-3.5 h-3.5" />
+                  <span>{resumeParseNotice}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -487,14 +636,14 @@ export function OnboardingModal({
                 onClick={() => setStep(3)}
                 className="px-6 py-3 rounded-full tinder-gradient text-white text-xs font-bold shadow-lg shadow-[#FD297B]/25 flex items-center gap-2 active:scale-95 transition-all"
               >
-                <span>Continue to Verification</span>
+                <span>Continue to Socials & Terms</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Public Signals & Terms Agreement */}
+        {/* STEP 3: Public Signals, Links & Terms Agreement */}
         {step === 3 && (
           <form onSubmit={handleFinish} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
             <div>
@@ -536,7 +685,7 @@ export function OnboardingModal({
                 <div>
                   <label className="text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1.5">
                     <LinkedinIcon className="w-3.5 h-3.5 text-blue-400" />
-                    LinkedIn URL
+                    LinkedIn URL (Optional)
                   </label>
                   <input 
                     type="text"
@@ -550,7 +699,7 @@ export function OnboardingModal({
                 <div>
                   <label className="text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-purple-400" />
-                    Portfolio / Website
+                    Portfolio / Website (Optional)
                   </label>
                   <input 
                     type="text"
