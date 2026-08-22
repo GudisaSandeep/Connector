@@ -228,6 +228,17 @@ export default function Home() {
     loadRealProfiles(newProfile);
   };
 
+  // Logout Handler
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('connector_onboarded');
+      localStorage.removeItem('connector_user_profile');
+    } catch (e) {}
+
+    setIsMyProfileModalOpen(false);
+    setIsOnboardingOpen(true);
+  };
+
   // Swipe Action
   const handleSwipe = async (profile: TechProfile, direction: 'left' | 'right' | 'super') => {
     setSwipeHistory(prev => [...prev, { profile, direction }]);
@@ -300,9 +311,11 @@ export default function Home() {
     <div className="min-h-screen bg-[#0b0d13] text-foreground flex flex-col justify-between selection:bg-[#FD297B] selection:text-white">
       {/* Tinder Minimal Navbar */}
       <Navbar 
+        currentUser={currentUser}
         onOpenProfile={() => setIsMyProfileModalOpen(true)}
         onOpenFilters={() => setIsFilterModalOpen(true)}
         onOpenMatches={() => setIsMatchesModalOpen(true)}
+        onLogout={handleLogout}
         matchesCount={matches.length}
         activeFilterCount={activeFilterCount}
       />
@@ -410,6 +423,7 @@ export default function Home() {
         onClose={() => setIsMyProfileModalOpen(false)}
         currentUser={currentUser}
         onUpdateProfile={handleUpdateProfile}
+        onLogout={handleLogout}
       />
     </div>
   );

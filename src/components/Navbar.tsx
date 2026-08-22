@@ -1,46 +1,70 @@
 'use client';
 
 import React from 'react';
-import { CURRENT_USER } from '@/lib/mockData';
+import { TechProfile } from '@/types';
 import { 
   Flame, 
   SlidersHorizontal, 
   MessageCircle,
-  User
+  User,
+  LogOut
 } from 'lucide-react';
 
 interface NavbarProps {
+  currentUser?: TechProfile;
   onOpenProfile: () => void;
   onOpenFilters: () => void;
   onOpenMatches: () => void;
+  onLogout?: () => void;
   matchesCount: number;
   activeFilterCount: number;
 }
 
 export function Navbar({
+  currentUser,
   onOpenProfile,
   onOpenFilters,
   onOpenMatches,
+  onLogout,
   matchesCount,
   activeFilterCount
 }: NavbarProps) {
+  const avatarUrl = currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80';
+
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0b0d13]/90 backdrop-blur-md border-b border-white/5 select-none">
       <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
         {/* Left: User Profile Icon */}
-        <button
-          onClick={onOpenProfile}
-          className="relative p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-          title="My Dev Profile"
-        >
-          <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/20 hover:border-[#FD297B] transition-colors">
-            <img 
-              src={CURRENT_USER.avatar} 
-              alt={CURRENT_USER.name}
-              className="w-full h-full object-cover" 
-            />
-          </div>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onOpenProfile}
+            className="relative p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+            title="My Dev Profile"
+          >
+            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/20 hover:border-[#FD297B] transition-colors bg-black/40 flex items-center justify-center">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src={avatarUrl} 
+                  alt={currentUser?.name || 'Profile'}
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <User className="w-4 h-4 text-slate-400" />
+              )}
+            </div>
+          </button>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded-full hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors"
+              title="Log Out of Profile"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* Center: Official Tinder-Style Flame Logo & Brand */}
         <div className="flex items-center gap-1.5 cursor-pointer">

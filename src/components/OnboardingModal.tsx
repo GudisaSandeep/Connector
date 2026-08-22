@@ -2,29 +2,26 @@
 
 import React, { useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { TechProfile, IntentType, ExperienceLevel } from '@/types';
+import { TechProfile, IntentType } from '@/types';
 import { parseResumeFile } from '@/lib/resumeParser';
 import { GithubIcon, LinkedinIcon } from './icons';
 import { 
   Flame, 
   Sparkles, 
-  GraduationCap, 
   Code2, 
   Check, 
   ArrowRight, 
   ArrowLeft, 
   ShieldCheck, 
   FileText, 
-  AlertCircle,
-  Terminal,
-  User,
-  Plus,
-  X,
-  Globe,
-  Trash2,
-  Upload,
-  Image as ImageIcon,
-  FileCheck2
+  User, 
+  Plus, 
+  X, 
+  Globe, 
+  Upload, 
+  Image as ImageIcon, 
+  FileCheck2,
+  Lock
 } from 'lucide-react';
 
 interface OnboardingModalProps {
@@ -158,9 +155,9 @@ export function OnboardingModal({
         if (result.suggestedRole) {
           setPrimaryRole(result.suggestedRole);
         }
-        setResumeParseNotice(`✨ Extracted ${result.extractedSkills.length} skills & matched ${result.suggestedRole} from your resume!`);
+        setResumeParseNotice(`✨ Auto-extracted ${result.extractedSkills.length} skills & matched ${result.suggestedRole}!`);
       } else {
-        setResumeParseNotice(`📄 Resume attached! Added to your verified profile.`);
+        setResumeParseNotice(`📄 Resume attached! Added to your profile.`);
       }
     } catch (err) {
       console.warn('Resume parse error:', err);
@@ -283,10 +280,10 @@ export function OnboardingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-lg select-none animate-in fade-in duration-300">
       <div className="relative w-full max-w-lg bg-[#12141c] border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl text-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col">
-        {/* Glow Element */}
+        {/* Ambient Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-[#FD297B]/20 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Step Indicator */}
+        {/* Minimal Clean Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl tinder-gradient flex items-center justify-center shadow-md shadow-[#FD297B]/25">
@@ -294,9 +291,9 @@ export function OnboardingModal({
             </div>
             <div>
               <span className="font-extrabold text-sm text-white tracking-tight">
-                Welcome to Connector
+                Create Your Dev Card
               </span>
-              <p className="text-[11px] text-slate-400">Step {step} of 3 • Create Your Real Dev Profile</p>
+              <p className="text-[11px] text-slate-400">Step {step} of 3 • {step === 1 ? 'Identity' : step === 2 ? 'Skills & Resume' : 'Links & Terms'}</p>
             </div>
           </div>
 
@@ -316,46 +313,23 @@ export function OnboardingModal({
           </div>
         </div>
 
-        {/* STEP 1: Identity, Photo & School */}
+        {/* STEP 1: Identity & School */}
         {step === 1 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Who are you?</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Set up your real profile card for student developer matching.
-              </p>
-            </div>
-
-            {/* Optional Profile Picture Upload */}
-            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3.5">
-              <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-black/40 border border-white/10 flex-shrink-0 flex items-center justify-center">
+            {/* Optional Photo Upload */}
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
+              <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-black/40 border border-white/10 flex-shrink-0 flex items-center justify-center">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-7 h-7 text-slate-500" />
+                  <User className="w-6 h-6 text-slate-500" />
                 )}
               </div>
 
-              <div className="flex-1 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-[#FD297B]" />
-                    Profile Picture (Optional)
-                  </span>
-                  {avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setAvatarUrl('')}
-                      className="text-[10px] text-red-400 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-400">Upload a photo or auto-pull via GitHub handle.</p>
-                
-                <div className="flex items-center gap-2 pt-1">
+              <div className="flex-1 space-y-1">
+                <span className="text-xs font-bold text-white block">Profile Picture (Optional)</span>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -373,7 +347,7 @@ export function OnboardingModal({
                   />
                   <input 
                     type="text"
-                    placeholder="Or paste image URL..."
+                    placeholder="Or paste photo URL..."
                     value={avatarUrl.startsWith('data:') ? '' : avatarUrl}
                     onChange={(e) => setAvatarUrl(e.target.value)}
                     className="flex-1 px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FD297B]"
@@ -454,33 +428,6 @@ export function OnboardingModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-300 mb-1 block">Graduation Year</label>
-                <select
-                  value={gradYear}
-                  onChange={(e) => setGradYear(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white font-mono focus:outline-none focus:border-[#FD297B]"
-                >
-                  <option value={2025} className="bg-slate-900">Class of 2025</option>
-                  <option value={2026} className="bg-slate-900">Class of 2026</option>
-                  <option value={2027} className="bg-slate-900">Class of 2027</option>
-                  <option value={2028} className="bg-slate-900">Class of 2028</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-300 mb-1 block">Location</label>
-                <input 
-                  type="text"
-                  placeholder="e.g. San Francisco, CA"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-[#FD297B]"
-                />
-              </div>
-            </div>
-
             <div className="flex justify-end pt-3">
               <button
                 type="button"
@@ -488,24 +435,17 @@ export function OnboardingModal({
                 disabled={!name.trim() || !university.trim()}
                 className="px-6 py-3 rounded-full tinder-gradient disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-[#FD297B]/25 flex items-center gap-2 active:scale-95 transition-all"
               >
-                <span>Continue to Skills & Resume</span>
+                <span>Continue to Skills</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 2: Resume Parser, Skills & Intents */}
+        {/* STEP 2: Resume Parser & Skills */}
         {step === 2 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Your Skills & Match Goals</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Drop your resume to auto-fill your top stacks, or select them manually.
-              </p>
-            </div>
-
-            {/* Drag & Drop Resume Upload Zone */}
+            {/* Drag & Drop Resume Upload Box */}
             <div 
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleResumeDrop}
@@ -528,10 +468,10 @@ export function OnboardingModal({
 
               <div>
                 <p className="text-xs font-bold text-white">
-                  {resumeFileName ? `Attached: ${resumeFileName}` : 'Drag & Drop your Resume (PDF / DOCX / TXT)'}
+                  {resumeFileName ? `Attached: ${resumeFileName}` : 'Drop Resume (PDF / DOCX) for Instant Skill Auto-Fill ⚡'}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {isParsingResume ? 'Scanning resume for technologies...' : 'Auto-extracts languages, frameworks, cloud tools & projects'}
+                  {isParsingResume ? 'Scanning resume keywords...' : 'Auto-extracts languages, frameworks & project stacks'}
                 </p>
               </div>
 
@@ -568,7 +508,7 @@ export function OnboardingModal({
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-300 mb-1.5 block">Top Technologies & Stacks</label>
+              <label className="text-[11px] font-bold text-slate-300 mb-1.5 block">Your Technologies & Stacks</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {popularSkills.map((sk, idx) => {
                   const isSelected = selectedSkills.includes(sk);
@@ -589,11 +529,11 @@ export function OnboardingModal({
                 })}
               </div>
 
-              {/* Custom Skill adder */}
+              {/* Custom Skill Adder */}
               <div className="flex items-center gap-2">
                 <input 
                   type="text"
-                  placeholder="Add custom skill (e.g. Zig, ROS2, Solidity)..."
+                  placeholder="Add skill (e.g. Zig, ROS2, Solidity)..."
                   value={customSkillInput}
                   onChange={(e) => setCustomSkillInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomSkill(); }}}
@@ -636,23 +576,16 @@ export function OnboardingModal({
                 onClick={() => setStep(3)}
                 className="px-6 py-3 rounded-full tinder-gradient text-white text-xs font-bold shadow-lg shadow-[#FD297B]/25 flex items-center gap-2 active:scale-95 transition-all"
               >
-                <span>Continue to Socials & Terms</span>
+                <span>Continue to Verification</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Public Signals, Links & Terms Agreement */}
+        {/* STEP 3: Public Signals & Terms */}
         {step === 3 && (
           <form onSubmit={handleFinish} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-            <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Public Signals & Terms</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Connect your developer footprints for verified badges and review visibility terms.
-              </p>
-            </div>
-
             <div className="space-y-3">
               {/* GitHub Handle */}
               <div>
@@ -685,7 +618,7 @@ export function OnboardingModal({
                 <div>
                   <label className="text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1.5">
                     <LinkedinIcon className="w-3.5 h-3.5 text-blue-400" />
-                    LinkedIn URL (Optional)
+                    LinkedIn (Optional)
                   </label>
                   <input 
                     type="text"
@@ -699,7 +632,7 @@ export function OnboardingModal({
                 <div>
                   <label className="text-[11px] font-bold text-slate-300 mb-1 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-purple-400" />
-                    Portfolio / Website (Optional)
+                    Portfolio (Optional)
                   </label>
                   <input 
                     type="text"
@@ -711,19 +644,19 @@ export function OnboardingModal({
                 </div>
               </div>
 
-              {/* Custom Links Adder Section */}
+              {/* Custom Showcase Links */}
               <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-[#20D5A0]" />
-                    Custom Social & Project Links
+                    Featured Project Links
                   </label>
                   <span className="text-[10px] text-slate-400">Devpost, LeetCode, Substack, etc.</span>
                 </div>
 
-                {/* Preset Suggestions */}
+                {/* Preset Chips */}
                 <div className="flex flex-wrap gap-1">
-                  {['Devpost', 'LeetCode', 'X / Twitter', 'Substack', 'Kaggle', 'Discord', 'YouTube'].map((preset) => (
+                  {['Devpost', 'LeetCode', 'X / Twitter', 'Substack', 'Kaggle', 'Discord'].map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -735,7 +668,7 @@ export function OnboardingModal({
                   ))}
                 </div>
 
-                {/* Add Custom Link Input */}
+                {/* Input row */}
                 <div className="flex items-center gap-2">
                   <input 
                     type="text"
@@ -757,13 +690,12 @@ export function OnboardingModal({
                     onClick={addCustomLink}
                     disabled={!newLinkLabel.trim() || !newLinkUrl.trim()}
                     className="p-1.5 rounded-xl bg-[#20D5A0]/20 hover:bg-[#20D5A0]/30 text-[#20D5A0] border border-[#20D5A0]/40 disabled:opacity-40"
-                    title="Add Custom Link"
+                    title="Add Link"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Added Links List */}
                 {customLinks.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {customLinks.map((link, idx) => (
@@ -787,24 +719,16 @@ export function OnboardingModal({
               </div>
             </div>
 
-            {/* Terms and Conditions Disclosure Box */}
-            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5 text-xs">
+            {/* Clean Professional Terms Disclosure Box */}
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
               <div className="flex items-center gap-2 text-white font-bold">
                 <ShieldCheck className="w-4 h-4 text-[#FD297B]" />
-                <span>Professional Terms & Visibility Agreement</span>
+                <span>Terms & Public Profile Visibility Agreement</span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 text-[11px] text-slate-300 leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
-                <p>
-                  <strong>Public Profile Notice:</strong> By proceeding, you acknowledge that your profile details (name, university, degree, declared tech skills, bio, public GitHub repository stats, and LinkedIn headline) will be visible to other verified students and developers in the discovery deck.
-                </p>
-                <p className="mt-1">
-                  • <strong>Zero Spam Policy:</strong> Contact details and messaging are restricted to mutual connections.
-                </p>
-                <p className="mt-1">
-                  • <strong>Code of Conduct:</strong> You agree to maintain professional communication in hackathon squads and mock interviews.
-                </p>
-              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed bg-black/40 p-2.5 rounded-xl border border-white/5">
+                By creating a profile, you agree that your name, university, skills, bio, public GitHub stats, and LinkedIn headline will be visible to verified students on Connector for matchmaking and hackathon squad formation.
+              </p>
 
               <div className="flex items-start gap-2.5 pt-1">
                 <input 
@@ -824,7 +748,7 @@ export function OnboardingModal({
                   >
                     Terms of Service
                   </button>{' '}
-                  and understand my developer profile will be shown to other students for collaboration matching.
+                  and public student profile visibility for developer matching.
                 </label>
               </div>
             </div>

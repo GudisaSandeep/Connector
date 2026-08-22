@@ -20,7 +20,8 @@ import {
   Upload,
   FileText,
   FileCheck2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  LogOut
 } from 'lucide-react';
 
 interface MyProfileModalProps {
@@ -28,13 +29,15 @@ interface MyProfileModalProps {
   onClose: () => void;
   currentUser: TechProfile;
   onUpdateProfile: (updated: TechProfile) => void;
+  onLogout?: () => void;
 }
 
 export function MyProfileModal({
   isOpen,
   onClose,
   currentUser,
-  onUpdateProfile
+  onUpdateProfile,
+  onLogout
 }: MyProfileModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || '');
@@ -395,8 +398,22 @@ export function MyProfileModal({
             </div>
           </div>
         ) : (
-          <div className="flex justify-center">
-            <TechCard profile={currentUser} isExpanded={true} showSynergy={false} />
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <TechCard profile={currentUser} isExpanded={true} showSynergy={false} />
+            </div>
+
+            {onLogout && (
+              <div className="pt-2 border-t border-white/10 flex justify-center">
+                <button
+                  onClick={onLogout}
+                  className="px-5 py-2.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-bold border border-red-500/25 flex items-center gap-2 transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out of Profile</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
