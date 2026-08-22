@@ -1,0 +1,86 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  --color-tinder-pink: #FD297B;
+  --color-tinder-orange: #FF7854;
+  --color-tinder-nope: #FE3C72;
+  --color-tinder-like: #20D5A0;
+  --color-tinder-super: #2DB1FF;
+  --color-tinder-rewind: #F5B800;
+  --color-tinder-boost: #A644FF;
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: #0f1117;
+  --foreground: #f8fafc;
+  --card: #181b24;
+  --card-foreground: #f8fafc;
+  --primary: #FD297B;
+  --primary-foreground: #ffffff;
+  --muted: #1e2230;
+  --muted-foreground: #94a3b8;
+  --border: rgba(255, 255, 255, 0.1);
+  --radius: 1.25rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-[#0b0d13] text-foreground antialiased select-none;
+    overflow-x: hidden;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Tinder Flame Gradient Utilities */
+.tinder-gradient {
+  background: linear-gradient(135deg, #FD297B 0%, #FF5864 50%, #FF7854 100%);
+}
+
+.tinder-gradient-text {
+  background: linear-gradient(135deg, #FD297B 0%, #FF5864 50%, #FF7854 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Scrollbar for Card Expand Drawer */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
