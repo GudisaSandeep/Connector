@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TechProfile, MatchResult, ChatMessage, FilterPreferences } from '@/types';
 import { CURRENT_USER, PROFILES_DECK, INITIAL_MATCHES, INITIAL_CHAT_MESSAGES } from '@/lib/mockData';
 import { calculateSynergy } from '@/lib/matchingEngine';
@@ -10,18 +10,40 @@ import { ChatView } from '@/components/ChatView';
 import { MatchCelebrationModal } from '@/components/MatchCelebrationModal';
 import { FilterModal } from '@/components/FilterModal';
 import { MyProfileModal } from '@/components/MyProfileModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
+import { TermsModal } from '@/components/TermsModal';
 import { 
   Flame, 
   Sparkles, 
   X,
   MessageCircle,
+  ShieldCheck,
   Code2
 } from 'lucide-react';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<TechProfile>(CURRENT_USER);
-  
-  // Calculate dynamic synergy scores
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
+
+  // Check initial onboarding status
+  useEffect(() => {
+    try {
+      const hasOnboarded = localStorage.getItem('connector_onboarded');
+      const savedProfile = localStorage.getItem('connector_user_profile');
+
+      if (!hasOnboarded) {
+        setIsOnboardingOpen(true);
+      } else if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        setCurrentUser(parsed);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  // Calculate dynamic synergy scores based on current user
   const [profiles, setProfiles] = useState<TechProfile[]>(() => {
     return PROFILES_DECK.map(p => {
       const syn = calculateSynergy(CURRENT_USER, p);
@@ -93,6 +115,33 @@ export default function Home() {
     if (filters.minSynergyScore > 60) count += 1;
     return count;
   }, [filters]);
+
+  // Recalculate synergy when currentUser updates
+  const handleUpdateProfile = (newProfile: TechProfile) => {
+    setCurrentUser(newProfile);
+    try {
+      localStorage.setItem('connector_user_profile', JSON.stringify(newProfile));
+    } catch (e) {}
+
+    setProfiles(prev => prev.map(p => {
+      const syn = calculateSynergy(newProfile, p);
+      return {
+        ...p,
+        synergyScore: syn.score,
+        synergyReason: syn.reason,
+        complementarySkills: syn.complementarySkills,
+        sharedInterests: syn.sharedInterests
+      };
+    }));
+  };
+
+  const handleOnboardingComplete = (newProfile: TechProfile) => {
+    handleUpdateProfile(newProfile);
+    try {
+      localStorage.setItem('connector_onboarded', 'true');
+    } catch (e) {}
+    setIsOnboardingOpen(false);
+  };
 
   // Swipe Action
   const handleSwipe = (profile: TechProfile, direction: 'left' | 'right' | 'super') => {
@@ -174,10 +223,32 @@ export default function Home() {
         />
       </main>
 
-      {/* Minimal Footer */}
-      <footer className="py-2 text-center text-[11px] text-slate-500 font-mono select-none">
-        <span>Connecter • Tinder for Tech Students</span>
+      {/* Minimal Footer with Terms & Conditions */}
+      <footer className="py-3 text-center text-[11px] text-slate-500 font-mono select-none border-t border-white/5 bg-[#0b0d13]">
+        <div className="flex items-center justify-center gap-3">
+          <span>Connecter • Tinder for Tech Students</span>
+          <span>•</span>
+          <button
+            onClick={() => setIsTermsOpen(true)}
+            className="text-slate-400 hover:text-[#FD297B] underline transition-colors"
+          >
+            Terms & Conditions
+          </button>
+        </div>
       </footer>
+
+      {/* Onboarding Flow Modal for New Users */}
+      <OnboardingModal 
+        isOpen={isOnboardingOpen}
+        onComplete={handleOnboardingComplete}
+        onViewTerms={() => setIsTermsOpen(true)}
+      />
+
+      {/* Standalone Terms & Privacy Modal */}
+      <TermsModal 
+        isOpen={isTermsOpen}
+        onClose={() => setIsTermsOpen(false)}
+      />
 
       {/* Match Celebration Modal */}
       <MatchCelebrationModal 
@@ -238,7 +309,7 @@ export default function Home() {
         isOpen={isMyProfileModalOpen}
         onClose={() => setIsMyProfileModalOpen(false)}
         currentUser={currentUser}
-        onUpdateProfile={(updated) => setCurrentUser(updated)}
+        onUpdateProfile={handleUpdateProfile}
       />
     </div>
   );
