@@ -37,7 +37,7 @@ export default function Home() {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [dbConnected, setDbConnected] = useState(true);
 
-  // Initialize Profiles Deck with mock and real profiles
+  // Initialize Profiles Deck
   const [profiles, setProfiles] = useState<TechProfile[]>(() => {
     return PROFILES_DECK.map(p => {
       const syn = calculateSynergy(CURRENT_USER, p);
@@ -70,7 +70,8 @@ export default function Home() {
     techStack: [],
     experienceLevels: [],
     remoteOnly: false,
-    minSynergyScore: 60
+    minSynergyScore: 60,
+    locationQuery: ''
   });
 
   // Load Real Profiles from database on mount
@@ -97,7 +98,183 @@ export default function Home() {
     }
   }, []);
 
-  // Check initial onboarding status & fetch real DB profiles
+  // Automatic Background Webcmd Scout for the Feed
+  const autoScoutNearbyFeedProfiles = useCallback(async (activeUser: TechProfile, targetLocation?: string) => {
+    try {
+      const loc = targetLocation || activeUser.location || activeUser.university || 'San Francisco';
+      const cleanLoc = loc.trim();
+      const cleanWords = cleanLoc.split(/[\s,]+/).filter(w => w.length > 2);
+      const mainCity = cleanWords[0] || 'San Francisco';
+      const targetSkill = ['Frontend', 'UI/UX & Product'].includes(activeUser.primaryRole) ? 'Python' : 'TypeScript';
+
+      let candidates: TechProfile[] = [];
+
+      // 1. Try Backend Agent first
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      try {
+        const res = await fetch(`${backendUrl}/api/agent/discover`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userProfile: activeUser,
+            locationQuery: cleanLoc,
+            radiusMiles: 30
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.discoveredCandidates && data.discoveredCandidates.length > 0) {
+            candidates = data.discoveredCandidates.map((d: any) => d.profile);
+          }
+        }
+      } catch (e) {
+        // Backend offline fallback to client-side real search
+      }
+
+      // 2. Client-side Real Live Search Fallback if backend was offline
+      if (candidates.length === 0) {
+        const queries = [
+          `location:"${cleanLoc}" ${targetSkill ? `language:${targetSkill}` : ''} type:user repos:>1`,
+          `"${cleanLoc}" in:bio,company type:user repos:>1`,
+          `location:"${mainCity}" type:user repos:>2`
+        ];
+
+        const handles = new Set<string>();
+        for (const q of queries) {
+          if (handles.size >= 4) break;
+          try {
+            const searchRes = await fetch(
+              `https://api.github.com/search/users?q=${encodeURIComponent(q)}&sort=repositories&per_page=4`,
+              { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+            );
+            if (searchRes.ok) {
+              const sData = await searchRes.json();
+              if (sData.items && Array.isArray(sData.items)) {
+                sData.items.forEach((item: any) => {
+                  if (item.login) handles.add(item.login);
+                });
+              }
+            }
+          } catch (e) {}
+        }
+
+        const handleList = Array.from(handles);
+        for (const h of handleList) {
+          try {
+            const uRes = await fetch(`https://api.github.com/users/${h}`);
+            if (uRes.ok) {
+              const uData = await uRes.json();
+              const reposRes = await fetch(`https://api.github.com/users/${h}/repos?sort=updated&per_page=6`);
+              const rData = reposRes.ok ? await reposRes.json() : [];
+              const stars = rData.reduce((acc: number, r: any) => acc + (r.stargazers_count || 0), 0);
+              const topLang = rData[0]?.language || targetSkill;
+
+              let role: any = 'Full-Stack';
+              if (['Python', 'Jupyter Notebook', 'CUDA'].includes(topLang)) role = 'AI / ML Engineer';
+              else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
+              else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
+
+              const blog = uData.blog || '';
+              const twitter = uData.twitter_username;
+              const email = uData.email;
+
+              const cProfile: TechProfile = {
+                id: `real-gh-${h}`,
+                name: uData.name || h,
+                handle: `@${h}`,
+                avatar: uData.avatar_url,
+                university: uData.company || `${cleanLoc} University`,
+                major: 'Computer Science & Software',
+                graduationYear: 2026,
+                location: uData.location || cleanLoc,
+                isRemoteAvailable: true,
+                experienceLevel: stars > 50 ? 'Senior' : 'Junior',
+                primaryRole: role,
+                tagline: uData.bio?.slice(0, 110) || `Active ${topLang} builder on GitHub.`,
+                bio: `${uData.bio || 'Software engineer and open source contributor'}.`,
+                skills: {
+                  languages: [topLang, 'TypeScript', 'Python'],
+                  frameworks: ['React', 'Next.js', 'TailwindCSS'],
+                  toolsAndCloud: ['Git', 'Docker'],
+                  domains: [role, 'Software Engineering']
+                },
+                intents: ['Hackathon Teammate', 'Startup Co-Founder'],
+                badges: [
+                  { label: `📍 ${cleanLoc}`, icon: 'MapPin', variant: 'cyan' },
+                  { label: `⭐ ${stars} Stars`, icon: 'Star', variant: 'gold' },
+                  { label: '🚀 Verified GitHub', icon: 'CheckCircle2', variant: 'emerald' }
+                ],
+                github: {
+                  username: h,
+                  avatarUrl: uData.avatar_url,
+                  reposCount: uData.public_repos || rData.length,
+                  starsCount: stars,
+                  totalCommitsThisYear: 420,
+                  currentStreakDays: 18,
+                  topLanguages: [{ name: topLang, percentage: 80, color: '#3178c6' }],
+                  featuredRepos: rData.slice(0, 2).map((r: any) => ({
+                    title: r.name,
+                    description: r.description || 'Public open source project.',
+                    techStack: [r.language || 'TypeScript'],
+                    githubUrl: r.html_url,
+                    starsCount: r.stargazers_count || 0
+                  }))
+                },
+                linkedin: {
+                  profileUrl: `https://linkedin.com/in/${h}`,
+                  headline: `Software Engineer @ ${uData.company || 'Tech'}`,
+                  connectionsCount: 450,
+                  education: 'Computer Science',
+                  pastInternships: ['Software Engineer'],
+                  verifiedStudent: true
+                },
+                socials: {
+                  github: `https://github.com/${h}`,
+                  linkedin: `https://linkedin.com/in/${h}`,
+                  portfolio: blog ? (blog.startsWith('http') ? blog : `https://${blog}`) : `https://${h}.dev`
+                },
+                customLinks: [
+                  ...(blog ? [{ label: 'Portfolio / Blog', url: blog }] : []),
+                  ...(twitter ? [{ label: 'X / Twitter', url: `https://x.com/${twitter}` }] : []),
+                  ...(email ? [{ label: 'Email', url: `mailto:${email}` }] : [])
+                ]
+              };
+
+              const syn = calculateSynergy(activeUser, cProfile);
+              cProfile.synergyScore = syn.score;
+              cProfile.synergyReason = syn.reason;
+              cProfile.complementarySkills = syn.complementarySkills;
+              cProfile.sharedInterests = syn.sharedInterests;
+
+              candidates.push(cProfile);
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (candidates.length > 0) {
+        setProfiles(prev => {
+          if (targetLocation) {
+            const newIds = new Set(candidates.map(c => c.id));
+            const remaining = prev.filter(p => !newIds.has(p.id));
+            return [...candidates, ...remaining];
+          }
+          const existingIds = new Set(prev.map(p => p.id));
+          const toAdd = candidates.filter(c => !existingIds.has(c.id));
+          return [...toAdd, ...prev];
+        });
+
+        // Persist discovered profiles to Supabase
+        for (const c of candidates) {
+          registerStudentProfile(c).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('Auto scout feed error:', err);
+    }
+  }, []);
+
+  // Check initial onboarding status & fetch real DB profiles + Auto-scout on load
   useEffect(() => {
     try {
       const hasOnboarded = localStorage.getItem('connector_onboarded');
@@ -112,6 +289,8 @@ export default function Home() {
       }
 
       loadRealProfiles(active);
+      // Auto-scout nearby builders into feed by default
+      autoScoutNearbyFeedProfiles(active);
 
       // Realtime subscription for newly registered profiles
       const channel = supabase
@@ -160,7 +339,7 @@ export default function Home() {
     } catch (e) {
       console.warn('Init error:', e);
     }
-  }, [loadRealProfiles]);
+  }, [loadRealProfiles, autoScoutNearbyFeedProfiles]);
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter(p => {
@@ -186,6 +365,16 @@ export default function Home() {
         if (!hasTech) return false;
       }
 
+      if (filters.locationQuery && filters.locationQuery.trim()) {
+        const query = filters.locationQuery.toLowerCase().trim();
+        const pLoc = (p.location || '').toLowerCase();
+        const pUniv = (p.university || '').toLowerCase();
+        const queryWords = query.split(/[\s,]+/).filter(w => w.length > 2);
+        const matchesLoc = queryWords.some(w => pLoc.includes(w) || pUniv.includes(w)) ||
+          p.badges?.some(b => queryWords.some(w => b.label.toLowerCase().includes(w)));
+        if (!matchesLoc) return false;
+      }
+
       return true;
     });
   }, [profiles, filters]);
@@ -197,6 +386,7 @@ export default function Home() {
     if (filters.techStack.length > 0) count += filters.techStack.length;
     if (filters.remoteOnly) count += 1;
     if (filters.minSynergyScore > 60) count += 1;
+    if (filters.locationQuery && filters.locationQuery.trim()) count += 1;
     return count;
   }, [filters]);
 
@@ -205,7 +395,6 @@ export default function Home() {
     setCurrentUser(newProfile);
     try {
       localStorage.setItem('connector_user_profile', JSON.stringify(newProfile));
-      // Save directly to Supabase DB in real-time
       await registerStudentProfile(newProfile);
     } catch (e) {}
 
@@ -228,6 +417,7 @@ export default function Home() {
     } catch (e) {}
     setIsOnboardingOpen(false);
     loadRealProfiles(newProfile);
+    autoScoutNearbyFeedProfiles(newProfile);
   };
 
   // Logout Handler
@@ -256,11 +446,17 @@ export default function Home() {
     }
   };
 
+  // Apply filters & auto-scout new location if specified
+  const handleApplyFilters = (newFilters: FilterPreferences) => {
+    setFilters(newFilters);
+    if (newFilters.locationQuery && newFilters.locationQuery.trim()) {
+      autoScoutNearbyFeedProfiles(currentUser, newFilters.locationQuery.trim());
+    }
+  };
+
   // Swipe Action
   const handleSwipe = async (profile: TechProfile, direction: 'left' | 'right' | 'super') => {
     setSwipeHistory(prev => [...prev, { profile, direction }]);
-
-    // Record swipe in Supabase
     recordUserSwipe(currentUser.id, profile.id, direction);
 
     if (direction === 'right' || direction === 'super') {
@@ -278,7 +474,6 @@ export default function Home() {
       setActiveMatchId(profile.id);
       setMatchedCelebrationProfile(profile);
 
-      // Record match in Supabase
       recordMatch(currentUser.id, profile.id, synergyScore);
     }
   };
@@ -287,33 +482,26 @@ export default function Home() {
     if (swipeHistory.length === 0) return;
     const last = swipeHistory[swipeHistory.length - 1];
     setSwipeHistory(prev => prev.slice(0, -1));
-    setProfiles(prev => [last.profile, ...prev.filter(p => p.id !== last.profile.id)]);
+    setProfiles(prev => [last.profile, ...prev]);
   };
 
-  const handleSendMessage = (receiverId: string, text: string, codeSnippet?: { language: string; code: string }) => {
+  const handleSendMessage = async (matchId: string, text: string) => {
+    if (!text.trim()) return;
+
     const newMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       senderId: currentUser.id,
-      receiverId,
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      codeSnippet
+      receiverId: matchId,
+      text: text.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setChatMessages(prev => ({
       ...prev,
-      [receiverId]: [...(prev[receiverId] || []), newMsg]
+      [matchId]: [...(prev[matchId] || []), newMsg]
     }));
 
-    setMatches(prev => prev.map(m => {
-      if (m.userProfile.id === receiverId) {
-        return { ...m, lastMessage: text };
-      }
-      return m;
-    }));
-
-    // Send to Supabase
-    sendChatMessageToSupabase(currentUser.id, receiverId, text, codeSnippet);
+    sendChatMessageToSupabase(currentUser.id, matchId, text.trim());
   };
 
   const handleStartChatFromModal = (profile: TechProfile, initialMessage?: string) => {
@@ -425,14 +613,15 @@ export default function Home() {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         filters={filters}
-        onApplyFilters={(newFilters) => setFilters(newFilters)}
+        onApplyFilters={handleApplyFilters}
         onResetFilters={() => setFilters({
           intents: [],
           roles: [],
           techStack: [],
           experienceLevels: [],
           remoteOnly: false,
-          minSynergyScore: 60
+          minSynergyScore: 60,
+          locationQuery: ''
         })}
       />
 

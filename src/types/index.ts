@@ -116,6 +116,7 @@ export interface FilterPreferences {
   experienceLevels: ExperienceLevel[];
   remoteOnly: boolean;
   minSynergyScore: number;
+  locationQuery?: string;
 }
 
 export interface SquadMemberSlot {

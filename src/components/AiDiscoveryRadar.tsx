@@ -17,7 +17,9 @@ import {
   ExternalLink,
   ShieldCheck,
   Radio,
-  Navigation
+  Navigation,
+  Crosshair,
+  Edit2
 } from 'lucide-react';
 import { GithubIcon } from './icons';
 
@@ -34,54 +36,66 @@ export function AiDiscoveryRadar({
   currentUser,
   onAddCandidatesToDeck
 }: AiDiscoveryRadarProps) {
-  const [locationName, setLocationName] = useState(currentUser.location || 'Detecting GPS...');
+  const [locationName, setLocationName] = useState(currentUser.location || 'San Francisco, CA');
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusMiles, setRadiusMiles] = useState<number>(25);
   const [isScanning, setIsScanning] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [discoveredProfiles, setDiscoveredProfiles] = useState<any[]>([]);
-  const [gpsStatus, setGpsStatus] = useState<'requesting' | 'granted' | 'manual' | 'denied'>('requesting');
+  const [gpsStatus, setGpsStatus] = useState<'idle' | 'granted' | 'denied'>('idle');
+  const [isManualEdit, setIsManualEdit] = useState(false);
 
-  // Automatic GPS Geolocation on mount / open
-  useEffect(() => {
-    if (isOpen) {
-      if ('geolocation' in navigator) {
-        setGpsStatus('requesting');
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            setCoordinates({ lat, lng });
-            setGpsStatus('granted');
-
-            // Automatic Reverse Geocoding via Nominatim
-            try {
-              const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=12`);
-              if (res.ok) {
-                const data = await res.json();
-                const addr = data.address || {};
-                const city = addr.city || addr.town || addr.municipality || addr.village || addr.county || 'Your Area';
-                const state = addr.state || '';
-                const detected = `${city}${state ? `, ${state}` : ''}`;
-                setLocationName(detected);
-              }
-            } catch (e) {
-              setLocationName(`GPS Location (${lat.toFixed(2)}, ${lng.toFixed(2)})`);
-            }
-          },
-          (err) => {
-            console.warn('Geolocation permission not granted:', err);
-            setGpsStatus('manual');
-            setLocationName(currentUser.location || 'San Francisco, CA');
-          },
-          { timeout: 8000, enableHighAccuracy: true }
-        );
-      } else {
-        setGpsStatus('manual');
-        setLocationName(currentUser.location || 'San Francisco, CA');
-      }
+  // Request browser GPS location and reverse geocode
+  const requestGpsLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setGpsStatus('denied');
+      return;
     }
-  }, [isOpen, currentUser.location]);
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCoordinates({ lat, lng });
+        setGpsStatus('granted');
+        setIsLocating(false);
+        setIsManualEdit(false);
+
+        // Reverse Geocode with Nominatim
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=12`);
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            const city = addr.city || addr.town || addr.municipality || addr.village || addr.county || 'Local City';
+            const state = addr.state || '';
+            const detected = `${city}${state ? `, ${state}` : ''}`;
+            setLocationName(detected);
+          } else {
+            setLocationName(`GPS Area (${lat.toFixed(2)}, ${lng.toFixed(2)})`);
+          }
+        } catch (e) {
+          setLocationName(`GPS Area (${lat.toFixed(2)}, ${lng.toFixed(2)})`);
+        }
+      },
+      (err) => {
+        console.warn('Location access denied or unavailable:', err);
+        setGpsStatus('denied');
+        setIsLocating(false);
+        setIsManualEdit(true);
+      },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  };
+
+  // Attempt automatic GPS prompt once on modal open
+  useEffect(() => {
+    if (isOpen && gpsStatus === 'idle') {
+      requestGpsLocation();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -120,33 +134,47 @@ export function AiDiscoveryRadar({
         console.warn('Backend agent server offline, running client-side live scout:', backendErr);
       }
 
-      // 2. Client-side Live Fallback if backend server not running
+      // 2. Client-side Live Fallback if backend server is not running
       if (!agentResult || !agentResult.success) {
-        // Query live GitHub API directly from client
-        const searchLoc = locationName.split(',')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim() || 'San Francisco';
+        const cleanLoc = locationName.trim();
+        const cleanWords = cleanLoc.split(/[\s,]+/).filter(w => w.length > 2);
+        const mainCity = cleanWords[0] || 'San Francisco';
         const targetLang = ['Frontend', 'UI/UX & Product'].includes(currentUser.primaryRole) ? 'Python' : 'TypeScript';
 
         setLogs(prev => [
           ...prev,
-          `[Webcmd:Scout] 🔍 Searching live GitHub builders in "${searchLoc}" with skill "${targetLang}"...`
+          `[Webcmd:Scout] 🔍 Scanning live GitHub builders in "${cleanLoc}" across campuses and tech stacks...`
         ]);
 
-        const searchRes = await fetch(
-          `https://api.github.com/search/users?q=location:"${encodeURIComponent(searchLoc)}"+language:${targetLang}+type:user+repos:>3&sort=followers&per_page=3`,
-          { headers: { 'Accept': 'application/vnd.github.v3+json' } }
-        );
+        const queries = [
+          `location:"${cleanLoc}" ${targetLang ? `language:${targetLang}` : ''} type:user repos:>1`,
+          `"${cleanLoc}" in:bio,company type:user repos:>1`,
+          `location:"${mainCity}" type:user repos:>2`
+        ];
 
-        let userLogins = ['shadcn', 'leerob', 'antfu'];
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          if (searchData.items && searchData.items.length > 0) {
-            userLogins = searchData.items.map((i: any) => i.login);
-          }
+        const userLoginsSet = new Set<string>();
+        for (const q of queries) {
+          if (userLoginsSet.size >= 4) break;
+          try {
+            const sRes = await fetch(
+              `https://api.github.com/search/users?q=${encodeURIComponent(q)}&sort=repositories&per_page=4`,
+              { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+            );
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              if (sData.items && Array.isArray(sData.items)) {
+                sData.items.forEach((item: any) => {
+                  if (item.login) userLoginsSet.add(item.login);
+                });
+              }
+            }
+          } catch (e) {}
         }
 
+        const userLogins = Array.from(userLoginsSet);
         setLogs(prev => [
           ...prev,
-          `[Webcmd:Found] Found ${userLogins.length} active builder handles: ${userLogins.join(', ')}`
+          `[Webcmd:Found] Found ${userLogins.length} active builder handles in ${cleanLoc}: ${userLogins.join(', ')}`
         ]);
 
         const scouted: any[] = [];
@@ -190,7 +218,7 @@ export function AiDiscoveryRadar({
                 },
                 intents: ['Hackathon Teammate', 'Startup Co-Founder'],
                 badges: [
-                  { label: `📍 ${searchLoc}`, icon: 'MapPin', variant: 'cyan' },
+                  { label: `📍 ${cleanLoc}`, icon: 'MapPin', variant: 'cyan' },
                   { label: `⭐ ${totalStars} Stars`, icon: 'Star', variant: 'gold' },
                   { label: '🚀 Verified GitHub', icon: 'CheckCircle2', variant: 'emerald' }
                 ],
@@ -211,7 +239,7 @@ export function AiDiscoveryRadar({
                   }))
                 },
                 linkedin: {
-                  profileUrl: uData.blog || `https://github.com/${login}`,
+                  profileUrl: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
                   headline: `Software Engineer @ ${uData.company || 'Open Source'}`,
                   connectionsCount: 480,
                   education: 'Computer Science',
@@ -220,8 +248,14 @@ export function AiDiscoveryRadar({
                 },
                 socials: {
                   github: `https://github.com/${login}`,
-                  portfolio: uData.blog || `https://github.com/${login}`
+                  linkedin: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
+                  portfolio: uData.blog || `https://${login}.dev`
                 },
+                customLinks: [
+                  ...(uData.blog ? [{ label: 'Portfolio / Blog', url: uData.blog }] : []),
+                  ...(uData.twitter_username ? [{ label: 'X / Twitter', url: `https://x.com/${uData.twitter_username}` }] : []),
+                  ...(uData.email ? [{ label: 'Email', url: `mailto:${uData.email}` }] : [])
+                ],
                 synergyScore: 88,
                 synergyReason: `🔥 Strong Complementarity! ${uData.name || login} brings ${topLang} expertise to pair with your stack.`
               };
@@ -287,7 +321,7 @@ export function AiDiscoveryRadar({
             </div>
             <div>
               <h3 className="font-bold text-lg text-white">Autonomous Webcmd AI Scout</h3>
-              <p className="text-xs text-slate-400">Scouts real live non-registered builders via GPS proximity & OpenRouter</p>
+              <p className="text-xs text-slate-400">Scouts real non-registered builders via GPS proximity & OpenRouter</p>
             </div>
           </div>
 
@@ -299,54 +333,96 @@ export function AiDiscoveryRadar({
           </button>
         </div>
 
-        {/* Automatic Location Detection Banner */}
-        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+        {/* Location Access & GPS State Section */}
+        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3.5">
+          {/* Location Mode Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Navigation className="w-4 h-4 text-[#20D5A0] animate-pulse" />
-              <span className="text-xs font-bold text-white">
-                {gpsStatus === 'granted' ? '📍 GPS Location (Auto-Verified)' : '📍 Location & Radius'}
-              </span>
+              <MapPin className="w-4 h-4 text-[#FD297B]" />
+              <span className="text-xs font-bold text-white">Location & Search Radius</span>
             </div>
-            <span className="text-xs font-mono text-pink-300 font-bold">{radiusMiles} miles</span>
+
+            {/* GPS Status Indicator */}
+            {gpsStatus === 'granted' ? (
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Live GPS Active
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full bg-white/10 text-slate-400 text-[11px] font-semibold">
+                Manual / GPS Ready
+              </span>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="relative">
-              <input 
-                type="text"
-                placeholder="Detecting location..."
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FD297B]"
-              />
+          {/* Quick 1-Click GPS Detect Button */}
+          {gpsStatus !== 'granted' && (
+            <button
+              type="button"
+              onClick={requestGpsLocation}
+              disabled={isLocating}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-98"
+            >
+              <Crosshair className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
+              <span>{isLocating ? 'Detecting Your Exact GPS Location...' : '📍 Turn On Location Access (Auto-Detect GPS)'}</span>
+            </button>
+          )}
+
+          {/* Location Input & Radius Selectors */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>{gpsStatus === 'granted' ? 'Current GPS Location (Editable):' : 'Enter City, University, or Campus Manually:'}</span>
               {gpsStatus === 'granted' && (
-                <span className="absolute right-2.5 top-2.5 w-2 h-2 rounded-full bg-emerald-400" title="Live GPS active" />
+                <button
+                  type="button"
+                  onClick={requestGpsLocation}
+                  className="text-cyan-400 hover:underline flex items-center gap-1 text-[11px] font-semibold"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
+                  Re-scan GPS
+                </button>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {[10, 25, 50, 100].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRadiusMiles(r)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-mono font-semibold border transition-all ${
-                    radiusMiles === r 
-                      ? 'bg-[#FD297B]/20 border-[#FD297B] text-pink-200' 
-                      : 'bg-black/30 border-white/10 text-slate-400'
-                  }`}
-                >
-                  {r}m
-                </button>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="relative">
+                <input 
+                  type="text"
+                  placeholder="e.g. Christ University / Bangalore / Stanford"
+                  value={locationName}
+                  onChange={(e) => {
+                    setLocationName(e.target.value);
+                    setIsManualEdit(true);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#FD297B]"
+                />
+              </div>
+
+              {/* Radius Options */}
+              <div className="flex items-center gap-1.5">
+                {[10, 25, 50, 100].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRadiusMiles(r)}
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-mono font-bold border transition-all ${
+                      radiusMiles === r 
+                        ? 'bg-[#FD297B]/20 border-[#FD297B] text-pink-200 shadow-sm' 
+                        : 'bg-black/30 border-white/10 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {r}m
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
+          {/* CTA Run Agent Button */}
           <button
             onClick={handleRunAgentScan}
             disabled={isScanning}
-            className="w-full py-3 rounded-full tinder-gradient disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-[#FD297B]/25 flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full py-3.5 rounded-full tinder-gradient disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-[#FD297B]/25 flex items-center justify-center gap-2 active:scale-95 transition-all mt-1"
           >
             <Sparkles className="w-4 h-4" />
             <span>{isScanning ? 'OpenRouter Agent Scouting Live Web...' : 'Run Webcmd AI Scout (Real Live Data)'}</span>
@@ -416,7 +492,7 @@ export function AiDiscoveryRadar({
             <div className="pt-2">
               <button
                 onClick={handleInject}
-                className="w-full py-3 rounded-full bg-[#20D5A0] hover:bg-[#20D5A0]/90 text-slate-950 text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-[#20D5A0]/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                className="w-full py-3.5 rounded-full bg-[#20D5A0] hover:bg-[#20D5A0]/90 text-slate-950 text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-[#20D5A0]/25 flex items-center justify-center gap-2 transition-all active:scale-95"
               >
                 <Flame className="w-4 h-4 fill-slate-950" />
                 <span>Add {discoveredProfiles.length} Real Builders to Live Swipe Deck</span>

@@ -21,7 +21,9 @@ import {
   Award,
   Layers,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 
 interface TechCardProps {
@@ -51,52 +53,51 @@ export function TechCard({
     }
   };
 
-  // Story media segments (Avatar/Cover, GitHub repo highlight, LinkedIn experience)
+  // Multiple Story-style segments (Main Photo -> GitHub Stats -> Featured Project)
   const segments = [
-    { type: 'photo', url: profile.avatar },
-    { type: 'cover', url: profile.coverImage || profile.avatar },
+    { type: 'photo', label: 'Photo' },
+    { type: 'github', label: 'GitHub' },
+    { type: 'skills', label: 'Stack' }
   ];
 
   const handleNextSegment = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (activeSegmentIndex < segments.length - 1) {
-      setActiveSegmentIndex(prev => prev + 1);
-    }
+    setActiveSegmentIndex((prev) => (prev + 1) % segments.length);
   };
 
   const handlePrevSegment = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (activeSegmentIndex > 0) {
-      setActiveSegmentIndex(prev => prev - 1);
-    }
+    setActiveSegmentIndex((prev) => (prev - 1 + segments.length) % segments.length);
   };
 
-  const currentImage = segments[activeSegmentIndex]?.url || profile.avatar;
+  const githubUrl = profile.socials.github || (profile.github ? `https://github.com/${profile.github.username}` : undefined);
+  const linkedinUrl = profile.socials.linkedin || profile.linkedin?.profileUrl;
+  const portfolioUrl = profile.socials.portfolio;
 
   return (
-    <div className="relative w-full h-[520px] sm:h-[560px] rounded-3xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/10 select-none flex flex-col justify-end text-white">
-      {/* Background Image with Dark Gradient Scrim */}
+    <div className="relative w-full h-[540px] sm:h-[580px] rounded-3xl overflow-hidden bg-[#12141c] border border-white/10 shadow-2xl flex flex-col justify-between select-none">
+      {/* Background Image or Story View */}
       <div className="absolute inset-0 z-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img 
-          src={currentImage} 
+          src={profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80'} 
           alt={profile.name}
-          className="w-full h-full object-cover object-center transition-all duration-300"
+          className="w-full h-full object-cover"
         />
-        
-        {/* Tinder Dark Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/20" />
+        {/* Tinder Dark Gradient Overlay for Readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d13] via-[#0b0d13]/50 to-black/30" />
       </div>
 
-      {/* Segmented Story Bars at Top (Tinder Style) */}
-      <div className="absolute top-3 left-3 right-3 z-20 flex items-center gap-1.5 pointer-events-none">
+      {/* Top Instagram / Tinder Story Progress Bars */}
+      <div className="relative z-20 px-3 pt-3 flex gap-1.5 pointer-events-none">
         {segments.map((_, idx) => (
           <div 
             key={idx} 
-            className="h-1 flex-1 rounded-full overflow-hidden bg-white/30 backdrop-blur-sm transition-all"
+            className="flex-1 h-1 bg-white/25 rounded-full overflow-hidden backdrop-blur-sm"
           >
             <div 
               className={`h-full bg-white transition-all duration-300 ${
-                idx === activeSegmentIndex ? 'w-full' : idx < activeSegmentIndex ? 'w-full bg-white/70' : 'w-0'
+                idx === activeSegmentIndex ? 'w-full' : idx < activeSegmentIndex ? 'w-full opacity-60' : 'w-0'
               }`}
             />
           </div>
@@ -149,7 +150,7 @@ export function TechCard({
               <span className="text-2xl font-normal text-white/80 font-mono">
                 '{String(profile.graduationYear).slice(2)}
               </span>
-              {profile.linkedin.verifiedStudent && (
+              {profile.linkedin?.verifiedStudent && (
                 <div className="bg-[#2DB1FF] text-white p-0.5 rounded-full shadow-sm" title="Verified Student">
                   <CheckCircle2 className="w-4 h-4 fill-[#2DB1FF] text-black" />
                 </div>
@@ -183,24 +184,66 @@ export function TechCard({
             "{profile.tagline}"
           </p>
 
-          {/* Tech Stack Pills */}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {profile.skills.languages.slice(0, 3).map((lang, idx) => (
-              <span 
-                key={idx} 
-                className="px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-mono font-medium text-white shadow-sm"
-              >
-                {lang}
-              </span>
-            ))}
-            {profile.skills.frameworks.slice(0, 2).map((fw, idx) => (
-              <span 
-                key={idx} 
-                className="px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-mono font-medium text-white shadow-sm"
-              >
-                {fw}
-              </span>
-            ))}
+          {/* Tech Stack Pills & Direct Contact Quick Icons */}
+          <div className="flex items-center justify-between pt-1 gap-2">
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {profile.skills.languages.slice(0, 3).map((lang, idx) => (
+                <span 
+                  key={idx} 
+                  className="px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-mono font-medium text-white shadow-sm"
+                >
+                  {lang}
+                </span>
+              ))}
+              {profile.skills.frameworks.slice(0, 2).map((fw, idx) => (
+                <span 
+                  key={idx} 
+                  className="px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-mono font-medium text-white shadow-sm"
+                >
+                  {fw}
+                </span>
+              ))}
+            </div>
+
+            {/* Direct Clickable Contact Buttons on Card */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {githubUrl && (
+                <a
+                  href={githubUrl.startsWith('http') ? githubUrl : `https://${githubUrl}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-xl bg-black/60 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white transition-all hover:scale-105"
+                  title="View GitHub"
+                >
+                  <GithubIcon className="w-3.5 h-3.5" />
+                </a>
+              )}
+              {linkedinUrl && (
+                <a
+                  href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-xl bg-black/60 hover:bg-white/20 backdrop-blur-md border border-white/20 text-blue-400 transition-all hover:scale-105"
+                  title="View LinkedIn"
+                >
+                  <LinkedinIcon className="w-3.5 h-3.5" />
+                </a>
+              )}
+              {portfolioUrl && (
+                <a
+                  href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-xl bg-black/60 hover:bg-white/20 backdrop-blur-md border border-white/20 text-purple-400 transition-all hover:scale-105"
+                  title="View Portfolio"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -212,7 +255,7 @@ export function TechCard({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-xl font-bold text-white">{profile.name}, '{String(profile.graduationYear).slice(2)}</h3>
-                  {profile.linkedin.verifiedStudent && (
+                  {profile.linkedin?.verifiedStudent && (
                     <CheckCircle2 className="w-4 h-4 text-[#2DB1FF]" />
                   )}
                 </div>
@@ -228,74 +271,124 @@ export function TechCard({
               </button>
             </div>
 
-            {/* Synergy Breakdown */}
-            {profile.synergyReason && (
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FD297B]/15 to-[#FF7854]/15 border border-[#FD297B]/30 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-[#FF7854] mb-1">
-                  <Flame className="w-4 h-4 fill-[#FF7854]" />
-                  {profile.synergyScore}% Synergy Match
+            {/* Direct Contact Links Bar */}
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                Direct Contact & Profiles
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {githubUrl && (
+                  <a
+                    href={githubUrl.startsWith('http') ? githubUrl : `https://${githubUrl}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-white font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
+                  >
+                    <GithubIcon className="w-3.5 h-3.5" />
+                    <span>GitHub Profile</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                )}
+                {linkedinUrl && (
+                  <a
+                    href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-blue-300 font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
+                  >
+                    <LinkedinIcon className="w-3.5 h-3.5 text-blue-400" />
+                    <span>LinkedIn</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                )}
+                {portfolioUrl && (
+                  <a
+                    href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-purple-300 font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Portfolio Website</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Synergy Breakdown Card */}
+            {profile.synergyScore && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FD297B]/10 to-[#FF7854]/10 border border-[#FD297B]/30 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-pink-300">
+                    <Sparkles className="w-4 h-4 text-[#FD297B]" />
+                    AI Synergy Match Analysis
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-[#FD297B]/20 text-[#FD297B] font-bold text-xs font-mono">
+                    {profile.synergyScore}%
+                  </span>
                 </div>
-                <p className="text-slate-200 text-[11px] leading-relaxed">
-                  {profile.synergyReason}
+                <p className="text-xs text-slate-200 leading-relaxed">
+                  {profile.synergyReason || 'Great complementary skill sets for building software together.'}
                 </p>
               </div>
             )}
 
-            {/* About Bio */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">About Me</h4>
-              <p className="text-xs text-slate-200 leading-relaxed bg-white/5 p-3 rounded-2xl border border-white/10">
-                {profile.bio}
-              </p>
+            {/* Bio & Journey */}
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">About & Journey</h4>
+              <p className="text-xs text-slate-200 leading-relaxed">{profile.bio}</p>
             </div>
 
-            {/* Intents */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Looking For</h4>
+            {/* Intent Badges */}
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Looking For</h4>
               <div className="flex flex-wrap gap-1.5">
                 {profile.intents.map((intent, idx) => (
                   <span 
                     key={idx}
-                    className="px-3 py-1 rounded-full bg-[#FD297B]/20 border border-[#FD297B]/40 text-xs font-medium text-pink-200"
+                    className="px-2.5 py-1 rounded-xl bg-[#2DB1FF]/15 border border-[#2DB1FF]/30 text-blue-200 text-xs font-medium"
                   >
-                    {intent === 'Hackathon Teammate' ? '🏆 ' : intent === 'Startup Co-Founder' ? '🚀 ' : '🤝 '}
-                    {intent}
+                    🎯 {intent}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Tech Stack */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Skills & Technologies</h4>
+            {/* Skills & Tech Stack */}
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Technical Arsenal</h4>
               <div className="flex flex-wrap gap-1.5">
                 {profile.skills.languages.map((l, idx) => (
-                  <span key={idx} className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-mono text-cyan-300 border border-white/10">
+                  <span key={idx} className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-mono text-white">
                     {l}
                   </span>
                 ))}
                 {profile.skills.frameworks.map((f, idx) => (
-                  <span key={idx} className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-mono text-purple-300 border border-white/10">
+                  <span key={idx} className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-mono text-emerald-300">
                     {f}
                   </span>
                 ))}
                 {profile.skills.toolsAndCloud.map((t, idx) => (
-                  <span key={idx} className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-mono text-emerald-300 border border-white/10">
+                  <span key={idx} className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-slate-400">
                     {t}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* GitHub Stats */}
+            {/* GitHub Verified Stats Section */}
             {profile.github && (
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-                  <span className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                     <GithubIcon className="w-4 h-4 text-white" />
-                    GitHub Activity (@{profile.github.username})
+                    GitHub Pulse (@{profile.github.username})
+                  </div>
+                  <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {profile.github.currentStreakDays} day streak
                   </span>
-                  <span className="text-emerald-400 font-mono">{profile.github.currentStreakDays}d streak</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs py-1">
@@ -327,38 +420,24 @@ export function TechCard({
               </div>
             )}
 
-            {/* LinkedIn Experience */}
-            {profile.linkedin?.pastInternships && profile.linkedin.pastInternships.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-400">
-                  <LinkedinIcon className="w-4 h-4 text-blue-400" />
-                  Past Roles & Internships
-                </div>
-                {profile.linkedin.pastInternships.map((job, idx) => (
-                  <div key={idx} className="text-xs text-slate-300 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                    {job}
-                  </div>
-                ))}
-              </div>
-            )}
             {/* Custom Links & Online Footprints */}
             {profile.customLinks && profile.customLinks.length > 0 && (
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                 <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Featured Links & Profiles
+                  Featured Links & Footprints
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {profile.customLinks.map((link, idx) => (
                     <a
                       key={idx}
-                      href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                      href={link.url.startsWith('http') || link.url.startsWith('mailto:') ? link.url : `https://${link.url}`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-medium text-slate-200 hover:text-white border border-white/15 flex items-center gap-1.5 transition-colors shadow-sm"
                     >
                       <Globe className="w-3.5 h-3.5 text-[#2DB1FF]" />
                       <span>{link.label}</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
                     </a>
                   ))}
                 </div>
@@ -369,9 +448,9 @@ export function TechCard({
           {/* Social Links & Bottom Close */}
           <div className="pt-4 mt-4 border-t border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {profile.socials.github && (
+              {githubUrl && (
                 <a 
-                  href={profile.socials.github.startsWith('http') ? profile.socials.github : `https://github.com/${profile.socials.github}`} 
+                  href={githubUrl.startsWith('http') ? githubUrl : `https://${githubUrl}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -380,9 +459,9 @@ export function TechCard({
                   <GithubIcon className="w-4 h-4" />
                 </a>
               )}
-              {profile.socials.linkedin && (
+              {linkedinUrl && (
                 <a 
-                  href={profile.socials.linkedin.startsWith('http') ? profile.socials.linkedin : `https://linkedin.com/in/${profile.socials.linkedin}`} 
+                  href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-blue-400 transition-colors"
@@ -391,9 +470,9 @@ export function TechCard({
                   <LinkedinIcon className="w-4 h-4" />
                 </a>
               )}
-              {profile.socials.portfolio && (
+              {portfolioUrl && (
                 <a 
-                  href={profile.socials.portfolio.startsWith('http') ? profile.socials.portfolio : `https://${profile.socials.portfolio}`} 
+                  href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-400 transition-colors"
