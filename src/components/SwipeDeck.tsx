@@ -35,6 +35,17 @@ export function SwipeDeck({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardExpanded, setCardExpanded] = useState(false);
 
+  const firstProfileId = profiles[0]?.id;
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [firstProfileId]);
+
+  useEffect(() => {
+    if (currentIndex >= profiles.length && profiles.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [profiles.length, currentIndex]);
+
   const activeProfile = profiles[currentIndex];
   const nextProfile = profiles[currentIndex + 1];
 

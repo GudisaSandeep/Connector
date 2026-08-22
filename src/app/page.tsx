@@ -98,7 +98,7 @@ export default function Home() {
     }
   }, []);
 
-  // Automatic Background Webcmd Scout for the Feed
+  // Automatic Background Webcmd Scout for the Feed (20+ candidates minimum)
   const autoScoutNearbyFeedProfiles = useCallback(async (activeUser: TechProfile, targetLocation?: string) => {
     try {
       const loc = targetLocation || activeUser.location || activeUser.university || 'San Francisco';
@@ -118,7 +118,8 @@ export default function Home() {
           body: JSON.stringify({
             userProfile: activeUser,
             locationQuery: cleanLoc,
-            radiusMiles: 30
+            radiusMiles: 30,
+            maxCandidates: 25
           })
         });
         if (res.ok) {
@@ -131,20 +132,22 @@ export default function Home() {
         // Backend offline fallback to client-side real search
       }
 
-      // 2. Client-side Real Live Search Fallback if backend was offline
-      if (candidates.length === 0) {
+      // 2. Client-side Real Live Search Fallback (Multi-track 20+ profiles)
+      if (candidates.length < 10) {
+        const languages = [targetSkill, 'TypeScript', 'Python', 'Rust', 'Go', 'JavaScript'];
         const queries = [
-          `location:"${cleanLoc}" ${targetSkill ? `language:${targetSkill}` : ''} type:user repos:>1`,
+          `location:"${cleanLoc}" type:user repos:>1`,
           `"${cleanLoc}" in:bio,company type:user repos:>1`,
-          `location:"${mainCity}" type:user repos:>2`
+          `location:"${mainCity}" type:user repos:>2`,
+          ...languages.map(l => `location:"${mainCity}" language:${l} type:user repos:>1`)
         ];
 
         const handles = new Set<string>();
         for (const q of queries) {
-          if (handles.size >= 4) break;
+          if (handles.size >= 24) break;
           try {
             const searchRes = await fetch(
-              `https://api.github.com/search/users?q=${encodeURIComponent(q)}&sort=repositories&per_page=4`,
+              `https://api.github.com/search/users?q=${encodeURIComponent(q)}&sort=repositories&per_page=30`,
               { headers: { 'Accept': 'application/vnd.github.v3+json' } }
             );
             if (searchRes.ok) {
@@ -158,97 +161,108 @@ export default function Home() {
           } catch (e) {}
         }
 
-        const handleList = Array.from(handles);
-        for (const h of handleList) {
-          try {
-            const uRes = await fetch(`https://api.github.com/users/${h}`);
-            if (uRes.ok) {
-              const uData = await uRes.json();
-              const reposRes = await fetch(`https://api.github.com/users/${h}/repos?sort=updated&per_page=6`);
-              const rData = reposRes.ok ? await reposRes.json() : [];
-              const stars = rData.reduce((acc: number, r: any) => acc + (r.stargazers_count || 0), 0);
-              const topLang = rData[0]?.language || targetSkill;
+        const handleList = Array.from(handles).slice(0, 22);
+        const batchSize = 6;
+        for (let i = 0; i < handleList.length; i += batchSize) {
+          const batch = handleList.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(async (h) => {
+              try {
+                const uRes = await fetch(`https://api.github.com/users/${h}`);
+                if (!uRes.ok) return null;
+                const uData = await uRes.json();
+                const reposRes = await fetch(`https://api.github.com/users/${h}/repos?sort=updated&per_page=6`);
+                const rData = reposRes.ok ? await reposRes.json() : [];
+                const stars = rData.reduce((acc: number, r: any) => acc + (r.stargazers_count || 0), 0);
+                const topLang = rData[0]?.language || targetSkill;
 
-              let role: any = 'Full-Stack';
-              if (['Python', 'Jupyter Notebook', 'CUDA'].includes(topLang)) role = 'AI / ML Engineer';
-              else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
-              else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
+                let role: any = 'Full-Stack';
+                if (['Python', 'Jupyter Notebook', 'CUDA'].includes(topLang)) role = 'AI / ML Engineer';
+                else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
+                else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
 
-              const blog = uData.blog || '';
-              const twitter = uData.twitter_username;
-              const email = uData.email;
+                const blog = uData.blog || '';
+                const twitter = uData.twitter_username;
+                const email = uData.email;
 
-              const cProfile: TechProfile = {
-                id: `real-gh-${h}`,
-                name: uData.name || h,
-                handle: `@${h}`,
-                avatar: uData.avatar_url,
-                university: uData.company || `${cleanLoc} University`,
-                major: 'Computer Science & Software',
-                graduationYear: 2026,
-                location: uData.location || cleanLoc,
-                isRemoteAvailable: true,
-                experienceLevel: stars > 50 ? 'Senior' : 'Junior',
-                primaryRole: role,
-                tagline: uData.bio?.slice(0, 110) || `Active ${topLang} builder on GitHub.`,
-                bio: `${uData.bio || 'Software engineer and open source contributor'}.`,
-                skills: {
-                  languages: [topLang, 'TypeScript', 'Python'],
-                  frameworks: ['React', 'Next.js', 'TailwindCSS'],
-                  toolsAndCloud: ['Git', 'Docker'],
-                  domains: [role, 'Software Engineering']
-                },
-                intents: ['Hackathon Teammate', 'Startup Co-Founder'],
-                badges: [
-                  { label: `📍 ${cleanLoc}`, icon: 'MapPin', variant: 'cyan' },
-                  { label: `⭐ ${stars} Stars`, icon: 'Star', variant: 'gold' },
-                  { label: '🚀 Verified GitHub', icon: 'CheckCircle2', variant: 'emerald' }
-                ],
-                github: {
-                  username: h,
-                  avatarUrl: uData.avatar_url,
-                  reposCount: uData.public_repos || rData.length,
-                  starsCount: stars,
-                  totalCommitsThisYear: 420,
-                  currentStreakDays: 18,
-                  topLanguages: [{ name: topLang, percentage: 80, color: '#3178c6' }],
-                  featuredRepos: rData.slice(0, 2).map((r: any) => ({
-                    title: r.name,
-                    description: r.description || 'Public open source project.',
-                    techStack: [r.language || 'TypeScript'],
-                    githubUrl: r.html_url,
-                    starsCount: r.stargazers_count || 0
-                  }))
-                },
-                linkedin: {
-                  profileUrl: `https://linkedin.com/in/${h}`,
-                  headline: `Software Engineer @ ${uData.company || 'Tech'}`,
-                  connectionsCount: 450,
-                  education: 'Computer Science',
-                  pastInternships: ['Software Engineer'],
-                  verifiedStudent: true
-                },
-                socials: {
-                  github: `https://github.com/${h}`,
-                  linkedin: `https://linkedin.com/in/${h}`,
-                  portfolio: blog ? (blog.startsWith('http') ? blog : `https://${blog}`) : `https://${h}.dev`
-                },
-                customLinks: [
-                  ...(blog ? [{ label: 'Portfolio / Blog', url: blog }] : []),
-                  ...(twitter ? [{ label: 'X / Twitter', url: `https://x.com/${twitter}` }] : []),
-                  ...(email ? [{ label: 'Email', url: `mailto:${email}` }] : [])
-                ]
-              };
+                const cProfile: TechProfile = {
+                  id: `real-gh-${h}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  name: uData.name || h,
+                  handle: `@${h}`,
+                  avatar: uData.avatar_url,
+                  university: uData.company || `${cleanLoc} University`,
+                  major: 'Computer Science & Software',
+                  graduationYear: 2026,
+                  location: uData.location || cleanLoc,
+                  isRemoteAvailable: true,
+                  experienceLevel: stars > 50 ? 'Senior' : 'Junior',
+                  primaryRole: role,
+                  tagline: uData.bio?.slice(0, 110) || `Active ${topLang} builder on GitHub.`,
+                  bio: `${uData.bio || 'Software engineer and open source contributor'}.`,
+                  skills: {
+                    languages: [topLang, 'TypeScript', 'Python'],
+                    frameworks: ['React', 'Next.js', 'TailwindCSS'],
+                    toolsAndCloud: ['Git', 'Docker'],
+                    domains: [role, 'Software Engineering']
+                  },
+                  intents: ['Hackathon Teammate', 'Startup Co-Founder'],
+                  badges: [
+                    { label: `📍 ${cleanLoc.split(',')[0]}`, icon: 'MapPin', variant: 'cyan' },
+                    { label: `⭐ ${stars} Stars`, icon: 'Star', variant: 'gold' },
+                    { label: '🚀 Verified GitHub', icon: 'CheckCircle2', variant: 'emerald' }
+                  ],
+                  github: {
+                    username: h,
+                    avatarUrl: uData.avatar_url,
+                    reposCount: uData.public_repos || rData.length,
+                    starsCount: stars,
+                    totalCommitsThisYear: 420,
+                    currentStreakDays: 18,
+                    topLanguages: [{ name: topLang, percentage: 80, color: '#3178c6' }],
+                    featuredRepos: rData.slice(0, 2).map((r: any) => ({
+                      title: r.name,
+                      description: r.description || 'Public open source project.',
+                      techStack: [r.language || 'TypeScript'],
+                      githubUrl: r.html_url,
+                      starsCount: r.stargazers_count || 0
+                    }))
+                  },
+                  linkedin: {
+                    profileUrl: blog?.includes('linkedin.com') ? blog : `https://linkedin.com/in/${h}`,
+                    headline: `Software Engineer @ ${uData.company || 'Tech'}`,
+                    connectionsCount: 450,
+                    education: 'Computer Science',
+                    pastInternships: ['Software Engineer'],
+                    verifiedStudent: true
+                  },
+                  socials: {
+                    github: `https://github.com/${h}`,
+                    linkedin: blog?.includes('linkedin.com') ? blog : `https://linkedin.com/in/${h}`,
+                    portfolio: blog ? (blog.startsWith('http') ? blog : `https://${blog}`) : `https://${h}.dev`
+                  },
+                  customLinks: [
+                    ...(blog ? [{ label: 'Portfolio / Blog', url: blog }] : []),
+                    ...(twitter ? [{ label: 'X / Twitter', url: `https://x.com/${twitter}` }] : []),
+                    ...(email ? [{ label: 'Direct Email', url: `mailto:${email}` }] : [])
+                  ]
+                };
 
-              const syn = calculateSynergy(activeUser, cProfile);
-              cProfile.synergyScore = syn.score;
-              cProfile.synergyReason = syn.reason;
-              cProfile.complementarySkills = syn.complementarySkills;
-              cProfile.sharedInterests = syn.sharedInterests;
+                const syn = calculateSynergy(activeUser, cProfile);
+                cProfile.synergyScore = syn.score;
+                cProfile.synergyReason = syn.reason;
+                cProfile.complementarySkills = syn.complementarySkills;
+                cProfile.sharedInterests = syn.sharedInterests;
 
-              candidates.push(cProfile);
-            }
-          } catch (e) {}
+                return cProfile;
+              } catch (e) {
+                return null;
+              }
+            })
+          );
+
+          for (const item of batchResults) {
+            if (item) candidates.push(item);
+          }
         }
       }
 
@@ -433,10 +447,24 @@ export default function Home() {
 
   // Add Non-registered candidates scouted by Autonomous Webcmd AI Agent
   const handleAddScoutedCandidates = async (newCandidates: TechProfile[]) => {
+    if (!newCandidates || newCandidates.length === 0) return;
+
+    // Reset filters that could accidentally hide newly added candidates
+    setFilters({
+      intents: [],
+      roles: [],
+      techStack: [],
+      experienceLevels: [],
+      remoteOnly: false,
+      minSynergyScore: 60,
+      locationQuery: ''
+    });
+
+    // Place all newly discovered candidates right at top of deck
     setProfiles(prev => {
-      const existingIds = new Set(prev.map(p => p.id));
-      const toAdd = newCandidates.filter(c => !existingIds.has(c.id));
-      return [...toAdd, ...prev];
+      const newIds = new Set(newCandidates.map(c => c.id));
+      const remaining = prev.filter(p => !newIds.has(p.id));
+      return [...newCandidates, ...remaining];
     });
 
     for (const c of newCandidates) {
@@ -545,7 +573,7 @@ export default function Home() {
             Live Network
           </span>
           <span>•</span>
-          <span>Connecter • Tinder for Tech Students</span>
+          <span>Connector • Tinder for Tech Students</span>
           <span>•</span>
           <button
             onClick={() => setIsTermsOpen(true)}
@@ -591,7 +619,7 @@ export default function Home() {
                 onClick={() => setIsMatchesModalOpen(false)}
                 className="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 

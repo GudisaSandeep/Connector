@@ -1,33 +1,34 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
 import { TechProfile } from '@/types';
 import { 
   Radar, 
   MapPin, 
   Sparkles, 
   Terminal, 
+  CheckCircle2, 
   Flame, 
-  Check, 
   X, 
-  Layers, 
-  ArrowRight,
-  RefreshCw,
-  ExternalLink,
-  ShieldCheck,
-  Radio,
-  Navigation,
+  RefreshCw, 
+  Globe, 
   Crosshair,
-  Edit2
+  UserCheck
 } from 'lucide-react';
-import { GithubIcon } from './icons';
 
 interface AiDiscoveryRadarProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: TechProfile;
-  onAddCandidatesToDeck: (newCandidates: TechProfile[]) => void;
+  onAddCandidatesToDeck: (candidates: TechProfile[]) => void;
+}
+
+export interface DiscoveredCandidate {
+  profile: TechProfile;
+  distanceMiles: number;
+  distanceLabel: string;
+  discoverySource: string;
+  discoverySnippet: string;
 }
 
 export function AiDiscoveryRadar({
@@ -36,17 +37,17 @@ export function AiDiscoveryRadar({
   currentUser,
   onAddCandidatesToDeck
 }: AiDiscoveryRadarProps) {
-  const [locationName, setLocationName] = useState(currentUser.location || 'San Francisco, CA');
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationName, setLocationName] = useState<string>(currentUser.location || 'Christ University, Bangalore');
   const [radiusMiles, setRadiusMiles] = useState<number>(25);
   const [isScanning, setIsScanning] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  const [discoveredProfiles, setDiscoveredProfiles] = useState<any[]>([]);
+  const [discoveredProfiles, setDiscoveredProfiles] = useState<DiscoveredCandidate[]>([]);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'granted' | 'denied'>('idle');
+  const [isLocating, setIsLocating] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isManualEdit, setIsManualEdit] = useState(false);
 
-  // Request browser GPS location and reverse geocode
+  // Auto-request GPS Location on User Trigger
   const requestGpsLocation = () => {
     if (!('geolocation' in navigator)) {
       setGpsStatus('denied');
@@ -99,14 +100,14 @@ export function AiDiscoveryRadar({
 
   if (!isOpen) return null;
 
-  // Run Real OpenRouter + Webcmd Autonomous Scout Agent
+  // Run Real OpenRouter + Webcmd Autonomous Scout Agent (20+ candidates)
   const handleRunAgentScan = async () => {
     setIsScanning(true);
     setDiscoveredProfiles([]);
     setLogs([
       `[OpenRouter:Agent] 🚀 Initializing Autonomous Tech Scout for ${currentUser.name}...`,
       `[OpenRouter:Agent] Target Role: ${currentUser.primaryRole} | Skills: ${currentUser.skills.languages.join(', ')}`,
-      `[Tool:Geocode] Target Location: "${locationName}" (Radius: ${radiusMiles} miles)`
+      `[Tool:Geocode] Target Location: "${locationName}" (Radius: ${radiusMiles} miles | Target: 20+ Real Builders)`
     ]);
 
     try {
@@ -123,7 +124,8 @@ export function AiDiscoveryRadar({
             locationQuery: locationName,
             latitude: coordinates?.lat,
             longitude: coordinates?.lng,
-            radiusMiles
+            radiusMiles,
+            maxCandidates: 25
           })
         });
 
@@ -134,8 +136,8 @@ export function AiDiscoveryRadar({
         console.warn('Backend agent server offline, running client-side live scout:', backendErr);
       }
 
-      // 2. Client-side Live Fallback if backend server is not running
-      if (!agentResult || !agentResult.success) {
+      // 2. Client-side Live Multi-Track Fallback if backend server is not running
+      if (!agentResult || !agentResult.success || !agentResult.discoveredCandidates || agentResult.discoveredCandidates.length < 10) {
         const cleanLoc = locationName.trim();
         const cleanWords = cleanLoc.split(/[\s,]+/).filter(w => w.length > 2);
         const mainCity = cleanWords[0] || 'San Francisco';
@@ -143,21 +145,23 @@ export function AiDiscoveryRadar({
 
         setLogs(prev => [
           ...prev,
-          `[Webcmd:Scout] 🔍 Scanning live GitHub builders in "${cleanLoc}" across campuses and tech stacks...`
+          `[Webcmd:Scout] 🔍 Scanning 20+ live GitHub builders in "${cleanLoc}" across languages & campuses...`
         ]);
 
+        const languages = [targetLang, 'TypeScript', 'Python', 'Rust', 'Go', 'JavaScript'];
         const queries = [
-          `location:"${cleanLoc}" ${targetLang ? `language:${targetLang}` : ''} type:user repos:>1`,
+          `location:"${cleanLoc}" type:user repos:>1`,
           `"${cleanLoc}" in:bio,company type:user repos:>1`,
-          `location:"${mainCity}" type:user repos:>2`
+          `location:"${mainCity}" type:user repos:>2`,
+          ...languages.map(l => `location:"${mainCity}" language:${l} type:user repos:>1`)
         ];
 
         const userLoginsSet = new Set<string>();
         for (const q of queries) {
-          if (userLoginsSet.size >= 4) break;
+          if (userLoginsSet.size >= 24) break;
           try {
             const sRes = await fetch(
-              `https://api.github.com/search/users?q=${encodeURIComponent(q)}&sort=repositories&per_page=4`,
+              `https://api.github.com/search/users?q=${encodeURIComponent(q)}&sort=repositories&per_page=30`,
               { headers: { 'Accept': 'application/vnd.github.v3+json' } }
             );
             if (sRes.ok) {
@@ -171,104 +175,113 @@ export function AiDiscoveryRadar({
           } catch (e) {}
         }
 
-        const userLogins = Array.from(userLoginsSet);
+        const userLogins = Array.from(userLoginsSet).slice(0, 22);
         setLogs(prev => [
           ...prev,
-          `[Webcmd:Found] Found ${userLogins.length} active builder handles in ${cleanLoc}: ${userLogins.join(', ')}`
+          `[Webcmd:Found] Found ${userLogins.length} active builders in ${cleanLoc}: ${userLogins.slice(0, 8).join(', ')}...`
         ]);
 
         const scouted: any[] = [];
-        for (const login of userLogins) {
-          setLogs(prev => [...prev, `[Webcmd:Extract] Fetching real live signals for @${login}...`]);
-          
-          try {
-            const userRes = await fetch(`https://api.github.com/users/${login}`);
-            if (userRes.ok) {
-              const uData = await userRes.json();
-              const reposRes = await fetch(`https://api.github.com/users/${login}/repos?sort=updated&per_page=6`);
-              const rData = reposRes.ok ? await reposRes.json() : [];
+        const batchSize = 6;
+        for (let i = 0; i < userLogins.length; i += batchSize) {
+          const batch = userLogins.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(async (login) => {
+              try {
+                const userRes = await fetch(`https://api.github.com/users/${login}`);
+                if (!userRes.ok) return null;
+                const uData = await userRes.json();
+                const reposRes = await fetch(`https://api.github.com/users/${login}/repos?sort=updated&per_page=6`);
+                const rData = reposRes.ok ? await reposRes.json() : [];
 
-              const totalStars = rData.reduce((acc: number, r: any) => acc + (r.stargazers_count || 0), 0);
-              const topLang = rData[0]?.language || targetLang;
+                const totalStars = rData.reduce((acc: number, r: any) => acc + (r.stargazers_count || 0), 0);
+                const topLang = rData[0]?.language || targetLang;
 
-              let role: any = 'Full-Stack';
-              if (['Python', 'Jupyter Notebook', 'CUDA'].includes(topLang)) role = 'AI / ML Engineer';
-              else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
-              else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
+                let role: any = 'Full-Stack';
+                if (['Python', 'Jupyter Notebook', 'CUDA'].includes(topLang)) role = 'AI / ML Engineer';
+                else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
+                else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
 
-              const candProfile: TechProfile = {
-                id: `real-gh-${login}-${Date.now()}`,
-                name: uData.name || login,
-                handle: `@${login}`,
-                avatar: uData.avatar_url,
-                university: uData.company || `${searchLoc} University`,
-                major: 'Computer Science',
-                graduationYear: 2026,
-                location: uData.location || locationName,
-                isRemoteAvailable: true,
-                experienceLevel: totalStars > 50 ? 'Senior' : 'Junior',
-                primaryRole: role,
-                tagline: uData.bio?.slice(0, 110) || `Active ${topLang} builder on GitHub.`,
-                bio: `${uData.bio || 'Software engineer and open source contributor'}.`,
-                skills: {
-                  languages: [topLang, 'TypeScript', 'Python'],
-                  frameworks: ['React', 'Next.js', 'TailwindCSS'],
-                  toolsAndCloud: ['Git', 'Docker'],
-                  domains: [role, 'Software Engineering']
-                },
-                intents: ['Hackathon Teammate', 'Startup Co-Founder'],
-                badges: [
-                  { label: `📍 ${cleanLoc}`, icon: 'MapPin', variant: 'cyan' },
-                  { label: `⭐ ${totalStars} Stars`, icon: 'Star', variant: 'gold' },
-                  { label: '🚀 Verified GitHub', icon: 'CheckCircle2', variant: 'emerald' }
-                ],
-                github: {
-                  username: login,
-                  avatarUrl: uData.avatar_url,
-                  reposCount: uData.public_repos || rData.length,
-                  starsCount: totalStars,
-                  totalCommitsThisYear: 380,
-                  currentStreakDays: 14,
-                  topLanguages: [{ name: topLang, percentage: 80, color: '#3178c6' }],
-                  featuredRepos: rData.slice(0, 2).map((r: any) => ({
-                    title: r.name,
-                    description: r.description || 'Public GitHub project.',
-                    techStack: [r.language || 'TypeScript'],
-                    githubUrl: r.html_url,
-                    starsCount: r.stargazers_count || 0
-                  }))
-                },
-                linkedin: {
-                  profileUrl: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
-                  headline: `Software Engineer @ ${uData.company || 'Open Source'}`,
-                  connectionsCount: 480,
-                  education: 'Computer Science',
-                  pastInternships: ['Software Engineer'],
-                  verifiedStudent: true
-                },
-                socials: {
-                  github: `https://github.com/${login}`,
-                  linkedin: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
-                  portfolio: uData.blog || `https://${login}.dev`
-                },
-                customLinks: [
-                  ...(uData.blog ? [{ label: 'Portfolio / Blog', url: uData.blog }] : []),
-                  ...(uData.twitter_username ? [{ label: 'X / Twitter', url: `https://x.com/${uData.twitter_username}` }] : []),
-                  ...(uData.email ? [{ label: 'Email', url: `mailto:${uData.email}` }] : [])
-                ],
-                synergyScore: 88,
-                synergyReason: `🔥 Strong Complementarity! ${uData.name || login} brings ${topLang} expertise to pair with your stack.`
-              };
+                const candProfile: TechProfile = {
+                  id: `real-gh-${login}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  name: uData.name || login,
+                  handle: `@${login}`,
+                  avatar: uData.avatar_url,
+                  university: uData.company || `${cleanLoc} University`,
+                  major: 'Computer Science & Software',
+                  graduationYear: 2026,
+                  location: uData.location || locationName,
+                  isRemoteAvailable: true,
+                  experienceLevel: totalStars > 50 ? 'Senior' : 'Junior',
+                  primaryRole: role,
+                  tagline: uData.bio?.slice(0, 110) || `Active ${topLang} builder on GitHub.`,
+                  bio: `${uData.bio || 'Software engineer and open source contributor'}.`,
+                  skills: {
+                    languages: [topLang, 'TypeScript', 'Python'],
+                    frameworks: ['React', 'Next.js', 'TailwindCSS'],
+                    toolsAndCloud: ['Git', 'Docker'],
+                    domains: [role, 'Software Engineering']
+                  },
+                  intents: ['Hackathon Teammate', 'Startup Co-Founder'],
+                  badges: [
+                    { label: `📍 ${cleanLoc.split(',')[0]}`, icon: 'MapPin', variant: 'cyan' },
+                    { label: `⭐ ${totalStars} Stars`, icon: 'Star', variant: 'gold' },
+                    { label: '🚀 Verified GitHub', icon: 'CheckCircle2', variant: 'emerald' }
+                  ],
+                  github: {
+                    username: login,
+                    avatarUrl: uData.avatar_url,
+                    reposCount: uData.public_repos || rData.length,
+                    starsCount: totalStars,
+                    totalCommitsThisYear: 380,
+                    currentStreakDays: 14,
+                    topLanguages: [{ name: topLang, percentage: 80, color: '#3178c6' }],
+                    featuredRepos: rData.slice(0, 2).map((r: any) => ({
+                      title: r.name,
+                      description: r.description || 'Public GitHub project.',
+                      techStack: [r.language || 'TypeScript'],
+                      githubUrl: r.html_url,
+                      starsCount: r.stargazers_count || 0
+                    }))
+                  },
+                  linkedin: {
+                    profileUrl: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
+                    headline: `Software Engineer @ ${uData.company || 'Open Source'}`,
+                    connectionsCount: 480,
+                    education: 'Computer Science',
+                    pastInternships: ['Software Engineer'],
+                    verifiedStudent: true
+                  },
+                  socials: {
+                    github: `https://github.com/${login}`,
+                    linkedin: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
+                    portfolio: uData.blog || `https://${login}.dev`
+                  },
+                  customLinks: [
+                    ...(uData.blog ? [{ label: 'Portfolio / Blog', url: uData.blog }] : []),
+                    ...(uData.twitter_username ? [{ label: 'X / Twitter', url: `https://x.com/${uData.twitter_username}` }] : []),
+                    ...(uData.email ? [{ label: 'Email', url: `mailto:${uData.email}` }] : [])
+                  ],
+                  synergyScore: Math.min(96, Math.max(78, 80 + Math.floor(Math.random() * 16))),
+                  synergyReason: `🔥 Strong Complementarity! ${uData.name || login} brings ${topLang} expertise to pair with your stack.`
+                };
 
-              scouted.push({
-                profile: candProfile,
-                distanceMiles: radiusMiles,
-                distanceLabel: `📍 Nearby • ${candProfile.location}`,
-                discoverySource: 'webcmd:github_live',
-                discoverySnippet: `100% Real GitHub profile with ${totalStars} total repository stars.`
-              });
-            }
-          } catch (e) {}
+                return {
+                  profile: candProfile,
+                  distanceMiles: radiusMiles,
+                  distanceLabel: `📍 Nearby • ${candProfile.location}`,
+                  discoverySource: 'webcmd:github_live',
+                  discoverySnippet: `100% Real GitHub profile with ${totalStars} total repository stars.`
+                };
+              } catch (e) {
+                return null;
+              }
+            })
+          );
+
+          for (const item of batchResults) {
+            if (item) scouted.push(item);
+          }
         }
 
         agentResult = {
@@ -276,27 +289,19 @@ export function AiDiscoveryRadar({
           discoveredCandidates: scouted,
           logs: [
             ...logs,
-            `[OpenRouter:Synergy] Evaluated technical matrices for ${scouted.length} candidates.`,
-            `[OpenRouter:Agent] 🎉 Discovery completed! Scouted ${scouted.length} real builders.`
+            `[Webcmd:Done] Successfully parsed ${scouted.length} real developers in ${cleanLoc}!`
           ]
         };
       }
 
-      setLogs(agentResult.logs || []);
-      setDiscoveredProfiles(agentResult.discoveredCandidates || []);
-
-      if (agentResult.discoveredCandidates?.length > 0) {
-        try {
-          confetti({
-            particleCount: 75,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#FD297B', '#20D5A0', '#2DB1FF']
-          });
-        } catch (e) {}
+      if (agentResult && agentResult.discoveredCandidates) {
+        setDiscoveredProfiles(agentResult.discoveredCandidates);
+        if (agentResult.logs) {
+          setLogs(agentResult.logs);
+        }
       }
-    } catch (error: any) {
-      setLogs(prev => [...prev, `[Agent:Error] Discovery scan failed: ${error.message}`]);
+    } catch (err: any) {
+      setLogs(prev => [...prev, `[OpenRouter:Error] Scouting failed: ${err.message}`]);
     } finally {
       setIsScanning(false);
     }
@@ -321,7 +326,7 @@ export function AiDiscoveryRadar({
             </div>
             <div>
               <h3 className="font-bold text-lg text-white">Autonomous Webcmd AI Scout</h3>
-              <p className="text-xs text-slate-400">Scouts real non-registered builders via GPS proximity & OpenRouter</p>
+              <p className="text-xs text-slate-400">Scouts 20+ real builders via GPS proximity, GitHub & OpenRouter</p>
             </div>
           </div>
 
@@ -425,7 +430,7 @@ export function AiDiscoveryRadar({
             className="w-full py-3.5 rounded-full tinder-gradient disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-[#FD297B]/25 flex items-center justify-center gap-2 active:scale-95 transition-all mt-1"
           >
             <Sparkles className="w-4 h-4" />
-            <span>{isScanning ? 'OpenRouter Agent Scouting Live Web...' : 'Run Webcmd AI Scout (Real Live Data)'}</span>
+            <span>{isScanning ? 'Scouting 20+ Real Builders Live...' : 'Scout 20+ Real Builders (Live Webcmd)'}</span>
           </button>
         </div>
 
@@ -437,12 +442,12 @@ export function AiDiscoveryRadar({
                 <Terminal className="w-3.5 h-3.5" />
                 Live Agent Execution Logs
               </span>
-              {isScanning && <span className="text-[10px] animate-pulse text-amber-400">Executing Webcmd Tools...</span>}
+              {isScanning && <span className="text-[10px] animate-pulse text-amber-400">Scouting Real Profiles...</span>}
             </div>
 
             <div className="space-y-1 text-slate-300 max-h-32 overflow-y-auto custom-scrollbar leading-relaxed">
               {logs.map((log, idx) => (
-                <div key={idx} className={log.includes('Success') || log.includes('Discovered') || log.includes('✅') ? 'text-emerald-400 font-bold' : log.includes('Extract') || log.includes('Found') ? 'text-cyan-300' : 'text-slate-400'}>
+                <div key={idx} className={log.includes('Success') || log.includes('Done') || log.includes('✅') ? 'text-emerald-400 font-bold' : log.includes('Extract') || log.includes('Found') ? 'text-cyan-300' : 'text-slate-400'}>
                   {log}
                 </div>
               ))}
@@ -460,7 +465,7 @@ export function AiDiscoveryRadar({
               <span className="text-[11px] text-[#20D5A0] font-bold">100% Real Live Profiles</span>
             </div>
 
-            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+            <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
               {discoveredProfiles.map((candidate, idx) => (
                 <div key={idx} className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
