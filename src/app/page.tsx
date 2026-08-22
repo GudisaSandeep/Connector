@@ -110,7 +110,7 @@ export default function Home() {
       let candidates: TechProfile[] = [];
 
       // 1. Try Backend Agent first
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://connector-backend-opal.vercel.app';
       try {
         const res = await fetch(`${backendUrl}/api/agent/discover`, {
           method: 'POST',
