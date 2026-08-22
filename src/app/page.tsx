@@ -181,15 +181,40 @@ export default function Home() {
                 else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
                 else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
 
-                const blog = uData.blog || '';
-                const twitter = uData.twitter_username;
-                const email = uData.email;
+                const rawBlog = (uData.blog || '').trim();
+                const bio = (uData.bio || '').trim();
+                let portfolioUrl = '';
+                let linkedinUrl = '';
+                let twitter = uData.twitter_username || '';
+                let email = uData.email || '';
+
+                if (rawBlog) {
+                  if (rawBlog.includes('linkedin.com')) {
+                    linkedinUrl = rawBlog.startsWith('http') ? rawBlog : `https://${rawBlog}`;
+                  } else if (rawBlog.includes('twitter.com') || rawBlog.includes('x.com')) {
+                    if (!twitter) twitter = rawBlog.split('/').pop() || '';
+                  } else {
+                    portfolioUrl = rawBlog.startsWith('http') ? rawBlog : `https://${rawBlog}`;
+                  }
+                }
+
+                const linkedinMatch = bio.match(/linkedin\.com\/in\/([a-zA-Z0-9_-]+)/i);
+                if (linkedinMatch && !linkedinUrl) {
+                  linkedinUrl = `https://linkedin.com/in/${linkedinMatch[1]}`;
+                }
+
+                const emailMatch = bio.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+                if (emailMatch && !email) {
+                  email = emailMatch[1];
+                }
+
+                const avatar = uData.avatar_url || `https://github.com/${h}.png?size=400`;
 
                 const cProfile: TechProfile = {
                   id: `real-gh-${h}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                   name: uData.name || h,
                   handle: `@${h}`,
-                  avatar: uData.avatar_url,
+                  avatar,
                   university: uData.company || `${cleanLoc} University`,
                   major: 'Computer Science & Software',
                   graduationYear: 2026,
@@ -213,7 +238,7 @@ export default function Home() {
                   ],
                   github: {
                     username: h,
-                    avatarUrl: uData.avatar_url,
+                    avatarUrl: avatar,
                     reposCount: uData.public_repos || rData.length,
                     starsCount: stars,
                     totalCommitsThisYear: 420,
@@ -227,21 +252,28 @@ export default function Home() {
                       starsCount: r.stargazers_count || 0
                     }))
                   },
-                  linkedin: {
-                    profileUrl: blog?.includes('linkedin.com') ? blog : `https://linkedin.com/in/${h}`,
-                    headline: `Software Engineer @ ${uData.company || 'Tech'}`,
-                    connectionsCount: 450,
+                  linkedin: linkedinUrl ? {
+                    profileUrl: linkedinUrl,
+                    headline: `Active Builder & Developer`,
+                    connectionsCount: 250,
                     education: 'Computer Science',
-                    pastInternships: ['Software Engineer'],
+                    pastInternships: [],
                     verifiedStudent: true
+                  } : {
+                    profileUrl: '',
+                    headline: '',
+                    connectionsCount: 0,
+                    education: '',
+                    pastInternships: [],
+                    verifiedStudent: false
                   },
                   socials: {
                     github: `https://github.com/${h}`,
-                    linkedin: blog?.includes('linkedin.com') ? blog : `https://linkedin.com/in/${h}`,
-                    portfolio: blog ? (blog.startsWith('http') ? blog : `https://${blog}`) : `https://${h}.dev`
+                    ...(linkedinUrl ? { linkedin: linkedinUrl } : {}),
+                    ...(portfolioUrl ? { portfolio: portfolioUrl } : {})
                   },
                   customLinks: [
-                    ...(blog ? [{ label: 'Portfolio / Blog', url: blog }] : []),
+                    ...(portfolioUrl ? [{ label: 'Portfolio / Website', url: portfolioUrl }] : []),
                     ...(twitter ? [{ label: 'X / Twitter', url: `https://x.com/${twitter}` }] : []),
                     ...(email ? [{ label: 'Direct Email', url: `mailto:${email}` }] : [])
                   ]

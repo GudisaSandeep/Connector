@@ -23,7 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
-  Mail
+  Mail,
+  User
 } from 'lucide-react';
 
 interface TechCardProps {
@@ -41,6 +42,7 @@ export function TechCard({
 }: TechCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const isExpanded = controlledExpanded !== undefined ? controlledExpanded : internalExpanded;
 
@@ -53,7 +55,6 @@ export function TechCard({
     }
   };
 
-  // Multiple Story-style segments (Main Photo -> GitHub Stats -> Featured Project)
   const segments = [
     { type: 'photo', label: 'Photo' },
     { type: 'github', label: 'GitHub' },
@@ -70,20 +71,44 @@ export function TechCard({
     setActiveSegmentIndex((prev) => (prev - 1 + segments.length) % segments.length);
   };
 
-  const githubUrl = profile.socials.github || (profile.github ? `https://github.com/${profile.github.username}` : undefined);
-  const linkedinUrl = profile.socials.linkedin || profile.linkedin?.profileUrl;
-  const portfolioUrl = profile.socials.portfolio;
+  const githubUrl = profile.socials?.github || (profile.github?.username ? `https://github.com/${profile.github.username}` : undefined);
+  const linkedinUrl = profile.socials?.linkedin && profile.socials.linkedin.includes('linkedin.com') ? profile.socials.linkedin : undefined;
+  const portfolioUrl = profile.socials?.portfolio && (profile.socials.portfolio.startsWith('http') || profile.socials.portfolio.includes('.')) 
+    ? (profile.socials.portfolio.startsWith('http') ? profile.socials.portfolio : `https://${profile.socials.portfolio}`) 
+    : undefined;
+
+  // Real avatar or high-res GitHub image
+  const avatarSrc = profile.avatar || (profile.github?.username ? `https://github.com/${profile.github.username}.png?size=400` : undefined);
 
   return (
     <div className="relative w-full h-[540px] sm:h-[580px] rounded-3xl overflow-hidden bg-[#12141c] border border-white/10 shadow-2xl flex flex-col justify-between select-none">
-      {/* Background Image or Story View */}
+      {/* Background Image or Stylish Developer Banner Fallback */}
       <div className="absolute inset-0 z-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img 
-          src={profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80'} 
-          alt={profile.name}
-          className="w-full h-full object-cover"
-        />
+        {avatarSrc && !imageFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img 
+            src={avatarSrc} 
+            alt={profile.name}
+            onError={() => setImageFailed(true)}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          /* Developer Banner Fallback with Geometric Glow */
+          <div className="w-full h-full bg-gradient-to-br from-[#1a1c29] via-[#0f1118] to-[#251532] flex flex-col items-center justify-center relative p-6">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(253,41,123,0.2),transparent_70%)] pointer-events-none" />
+            <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#FD297B] to-[#FF7854] flex items-center justify-center text-4xl font-extrabold text-white shadow-2xl border-4 border-white/20 z-10">
+              {profile.name.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="mt-4 text-center z-10">
+              <span className="font-mono text-xs text-[#2DB1FF] font-bold tracking-wider uppercase block">
+                {profile.primaryRole}
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+                {profile.handle}
+              </span>
+            </div>
+          </div>
+        )}
         {/* Tinder Dark Gradient Overlay for Readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d13] via-[#0b0d13]/50 to-black/30" />
       </div>
@@ -221,7 +246,7 @@ export function TechCard({
               )}
               {linkedinUrl && (
                 <a
-                  href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`}
+                  href={linkedinUrl}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
@@ -233,7 +258,7 @@ export function TechCard({
               )}
               {portfolioUrl && (
                 <a
-                  href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`}
+                  href={portfolioUrl}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
@@ -272,49 +297,51 @@ export function TechCard({
             </div>
 
             {/* Direct Contact Links Bar */}
-            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
-                Direct Contact & Profiles
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {githubUrl && (
-                  <a
-                    href={githubUrl.startsWith('http') ? githubUrl : `https://${githubUrl}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-white font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
-                  >
-                    <GithubIcon className="w-3.5 h-3.5" />
-                    <span>GitHub Profile</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  </a>
-                )}
-                {linkedinUrl && (
-                  <a
-                    href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-blue-300 font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
-                  >
-                    <LinkedinIcon className="w-3.5 h-3.5 text-blue-400" />
-                    <span>LinkedIn</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  </a>
-                )}
-                {portfolioUrl && (
-                  <a
-                    href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-purple-300 font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
-                  >
-                    <Globe className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Portfolio Website</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  </a>
-                )}
+            {(githubUrl || linkedinUrl || portfolioUrl || (profile.customLinks && profile.customLinks.length > 0)) && (
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                  Direct Verified Footprints & Links
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {githubUrl && (
+                    <a
+                      href={githubUrl.startsWith('http') ? githubUrl : `https://${githubUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-white font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
+                    >
+                      <GithubIcon className="w-3.5 h-3.5" />
+                      <span>GitHub</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  )}
+                  {linkedinUrl && (
+                    <a
+                      href={linkedinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-blue-300 font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
+                    >
+                      <LinkedinIcon className="w-3.5 h-3.5 text-blue-400" />
+                      <span>LinkedIn</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  )}
+                  {portfolioUrl && (
+                    <a
+                      href={portfolioUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-black/40 hover:bg-white/15 text-xs text-purple-300 font-medium border border-white/10 flex items-center gap-1.5 transition-colors"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Portfolio</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Synergy Breakdown Card */}
             {profile.synergyScore && (
@@ -461,7 +488,7 @@ export function TechCard({
               )}
               {linkedinUrl && (
                 <a 
-                  href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`} 
+                  href={linkedinUrl} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-blue-400 transition-colors"
@@ -472,7 +499,7 @@ export function TechCard({
               )}
               {portfolioUrl && (
                 <a 
-                  href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`} 
+                  href={portfolioUrl} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-400 transition-colors"

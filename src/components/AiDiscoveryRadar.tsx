@@ -202,11 +202,40 @@ export function AiDiscoveryRadar({
                 else if (['Rust', 'C', 'Go'].includes(topLang)) role = 'Systems / DevOps';
                 else if (['TypeScript', 'JavaScript', 'HTML'].includes(topLang)) role = 'Frontend';
 
+                const rawBlog = (uData.blog || '').trim();
+                const bio = (uData.bio || '').trim();
+                let portfolioUrl = '';
+                let linkedinUrl = '';
+                let twitter = uData.twitter_username || '';
+                let email = uData.email || '';
+
+                if (rawBlog) {
+                  if (rawBlog.includes('linkedin.com')) {
+                    linkedinUrl = rawBlog.startsWith('http') ? rawBlog : `https://${rawBlog}`;
+                  } else if (rawBlog.includes('twitter.com') || rawBlog.includes('x.com')) {
+                    if (!twitter) twitter = rawBlog.split('/').pop() || '';
+                  } else {
+                    portfolioUrl = rawBlog.startsWith('http') ? rawBlog : `https://${rawBlog}`;
+                  }
+                }
+
+                const linkedinMatch = bio.match(/linkedin\.com\/in\/([a-zA-Z0-9_-]+)/i);
+                if (linkedinMatch && !linkedinUrl) {
+                  linkedinUrl = `https://linkedin.com/in/${linkedinMatch[1]}`;
+                }
+
+                const emailMatch = bio.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+                if (emailMatch && !email) {
+                  email = emailMatch[1];
+                }
+
+                const avatar = uData.avatar_url || `https://github.com/${login}.png?size=400`;
+
                 const candProfile: TechProfile = {
                   id: `real-gh-${login}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                   name: uData.name || login,
                   handle: `@${login}`,
-                  avatar: uData.avatar_url,
+                  avatar,
                   university: uData.company || `${cleanLoc} University`,
                   major: 'Computer Science & Software',
                   graduationYear: 2026,
@@ -230,7 +259,7 @@ export function AiDiscoveryRadar({
                   ],
                   github: {
                     username: login,
-                    avatarUrl: uData.avatar_url,
+                    avatarUrl: avatar,
                     reposCount: uData.public_repos || rData.length,
                     starsCount: totalStars,
                     totalCommitsThisYear: 380,
@@ -244,23 +273,30 @@ export function AiDiscoveryRadar({
                       starsCount: r.stargazers_count || 0
                     }))
                   },
-                  linkedin: {
-                    profileUrl: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
-                    headline: `Software Engineer @ ${uData.company || 'Open Source'}`,
-                    connectionsCount: 480,
+                  linkedin: linkedinUrl ? {
+                    profileUrl: linkedinUrl,
+                    headline: `Active Builder & Developer`,
+                    connectionsCount: 250,
                     education: 'Computer Science',
-                    pastInternships: ['Software Engineer'],
+                    pastInternships: [],
                     verifiedStudent: true
+                  } : {
+                    profileUrl: '',
+                    headline: '',
+                    connectionsCount: 0,
+                    education: '',
+                    pastInternships: [],
+                    verifiedStudent: false
                   },
                   socials: {
                     github: `https://github.com/${login}`,
-                    linkedin: uData.blog?.includes('linkedin.com') ? uData.blog : `https://linkedin.com/in/${login}`,
-                    portfolio: uData.blog || `https://${login}.dev`
+                    ...(linkedinUrl ? { linkedin: linkedinUrl } : {}),
+                    ...(portfolioUrl ? { portfolio: portfolioUrl } : {})
                   },
                   customLinks: [
-                    ...(uData.blog ? [{ label: 'Portfolio / Blog', url: uData.blog }] : []),
-                    ...(uData.twitter_username ? [{ label: 'X / Twitter', url: `https://x.com/${uData.twitter_username}` }] : []),
-                    ...(uData.email ? [{ label: 'Email', url: `mailto:${uData.email}` }] : [])
+                    ...(portfolioUrl ? [{ label: 'Portfolio / Website', url: portfolioUrl }] : []),
+                    ...(twitter ? [{ label: 'X / Twitter', url: `https://x.com/${twitter}` }] : []),
+                    ...(email ? [{ label: 'Direct Email', url: `mailto:${email}` }] : [])
                   ],
                   synergyScore: Math.min(96, Math.max(78, 80 + Math.floor(Math.random() * 16))),
                   synergyReason: `🔥 Strong Complementarity! ${uData.name || login} brings ${topLang} expertise to pair with your stack.`
