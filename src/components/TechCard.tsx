@@ -342,6 +342,28 @@ export function TechCard({
                 ))}
               </div>
             )}
+            {/* Custom Links & Online Footprints */}
+            {profile.customLinks && profile.customLinks.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Featured Links & Profiles
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {profile.customLinks.map((link, idx) => (
+                    <a
+                      key={idx}
+                      href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-medium text-slate-200 hover:text-white border border-white/15 flex items-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-[#2DB1FF]" />
+                      <span>{link.label}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Social Links & Bottom Close */}
@@ -349,30 +371,33 @@ export function TechCard({
             <div className="flex items-center gap-2">
               {profile.socials.github && (
                 <a 
-                  href={profile.socials.github} 
+                  href={profile.socials.github.startsWith('http') ? profile.socials.github : `https://github.com/${profile.socials.github}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  title="GitHub Profile"
                 >
                   <GithubIcon className="w-4 h-4" />
                 </a>
               )}
               {profile.socials.linkedin && (
                 <a 
-                  href={profile.socials.linkedin} 
+                  href={profile.socials.linkedin.startsWith('http') ? profile.socials.linkedin : `https://linkedin.com/in/${profile.socials.linkedin}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-blue-400 transition-colors"
+                  title="LinkedIn Profile"
                 >
                   <LinkedinIcon className="w-4 h-4" />
                 </a>
               )}
               {profile.socials.portfolio && (
                 <a 
-                  href={profile.socials.portfolio} 
+                  href={profile.socials.portfolio.startsWith('http') ? profile.socials.portfolio : `https://${profile.socials.portfolio}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-400 transition-colors"
+                  title="Portfolio Website"
                 >
                   <Globe className="w-4 h-4" />
                 </a>

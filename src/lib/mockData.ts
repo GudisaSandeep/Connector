@@ -70,7 +70,11 @@ export const CURRENT_USER: TechProfile = {
     portfolio: 'https://alexchen.dev',
     discord: 'alex_chen#0001',
     twitter: 'https://x.com/alexchen_dev'
-  }
+  },
+  customLinks: [
+    { label: 'Devpost', url: 'https://devpost.com/alexchen' },
+    { label: 'Substack', url: 'https://alexchen.substack.com' }
+  ]
 };
 
 export const PROFILES_DECK: TechProfile[] = [
@@ -144,6 +148,10 @@ export const PROFILES_DECK: TechProfile[] = [
       portfolio: 'https://sophiazhang.ai',
       twitter: 'https://x.com/sophia_ai_dev'
     },
+    customLinks: [
+      { label: 'Hugging Face', url: 'https://huggingface.co/sophiaz' },
+      { label: 'Kaggle Grandmaster', url: 'https://kaggle.com/sophiaz' }
+    ],
     synergyScore: 96,
     synergyReason: '🔥 Insane Complementary Match! She excels in PyTorch & model fine-tuning while you specialize in Next.js & Fullstack UI.',
     complementarySkills: ['PyTorch & CUDA', 'Agentic Memory', 'Model Quantization'],

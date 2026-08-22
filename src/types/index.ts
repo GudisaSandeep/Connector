@@ -75,6 +75,7 @@ export interface TechProfile {
     discord?: string;
     twitter?: string;
   };
+  customLinks?: { label: string; url: string }[];
   synergyScore?: number;
   synergyReason?: string;
   complementarySkills?: string[];
