@@ -367,6 +367,7 @@ export default function Home() {
       <MatchCelebrationModal 
         isOpen={!!matchedCelebrationProfile}
         matchedProfile={matchedCelebrationProfile}
+        currentUserAvatar={currentUser?.avatar}
         onClose={() => setMatchedCelebrationProfile(null)}
         onStartChat={handleStartChatFromModal}
       />
