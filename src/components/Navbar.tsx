@@ -7,7 +7,8 @@ import {
   SlidersHorizontal, 
   MessageCircle,
   User,
-  LogOut
+  LogOut,
+  Radar
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -15,6 +16,7 @@ interface NavbarProps {
   onOpenProfile: () => void;
   onOpenFilters: () => void;
   onOpenMatches: () => void;
+  onOpenRadar?: () => void;
   onLogout?: () => void;
   matchesCount: number;
   activeFilterCount: number;
@@ -25,6 +27,7 @@ export function Navbar({
   onOpenProfile,
   onOpenFilters,
   onOpenMatches,
+  onOpenRadar,
   onLogout,
   matchesCount,
   activeFilterCount
@@ -76,8 +79,20 @@ export function Navbar({
           </span>
         </div>
 
-        {/* Right: Filters & Match Messages */}
+        {/* Right: AI Scout Radar, Filters & Matches */}
         <div className="flex items-center gap-1">
+          {/* Autonomous AI Scout Radar Button */}
+          {onOpenRadar && (
+            <button
+              onClick={onOpenRadar}
+              className="p-2 rounded-full text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10 transition-colors relative"
+              title="Autonomous Webcmd AI Scout (Nearby & Non-registered builders)"
+            >
+              <Radar className="w-5 h-5 animate-spin" style={{ animationDuration: '10s' }} />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            </button>
+          )}
+
           {/* Discovery Filter Button */}
           <button
             onClick={onOpenFilters}

@@ -20,6 +20,7 @@ import { FilterModal } from '@/components/FilterModal';
 import { MyProfileModal } from '@/components/MyProfileModal';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { TermsModal } from '@/components/TermsModal';
+import { AiDiscoveryRadar } from '@/components/AiDiscoveryRadar';
 import { 
   Flame, 
   Sparkles, 
@@ -60,6 +61,7 @@ export default function Home() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
   const [isMatchesModalOpen, setIsMatchesModalOpen] = useState(false);
+  const [isRadarOpen, setIsRadarOpen] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState<FilterPreferences>({
@@ -239,6 +241,21 @@ export default function Home() {
     setIsOnboardingOpen(true);
   };
 
+  // Add Non-registered candidates scouted by Autonomous Webcmd AI Agent
+  const handleAddScoutedCandidates = async (newCandidates: TechProfile[]) => {
+    setProfiles(prev => {
+      const existingIds = new Set(prev.map(p => p.id));
+      const toAdd = newCandidates.filter(c => !existingIds.has(c.id));
+      return [...toAdd, ...prev];
+    });
+
+    for (const c of newCandidates) {
+      try {
+        await registerStudentProfile(c);
+      } catch (e) {}
+    }
+  };
+
   // Swipe Action
   const handleSwipe = async (profile: TechProfile, direction: 'left' | 'right' | 'super') => {
     setSwipeHistory(prev => [...prev, { profile, direction }]);
@@ -315,6 +332,7 @@ export default function Home() {
         onOpenProfile={() => setIsMyProfileModalOpen(true)}
         onOpenFilters={() => setIsFilterModalOpen(true)}
         onOpenMatches={() => setIsMatchesModalOpen(true)}
+        onOpenRadar={() => setIsRadarOpen(true)}
         onLogout={handleLogout}
         matchesCount={matches.length}
         activeFilterCount={activeFilterCount}
@@ -425,6 +443,14 @@ export default function Home() {
         currentUser={currentUser}
         onUpdateProfile={handleUpdateProfile}
         onLogout={handleLogout}
+      />
+
+      {/* Autonomous Webcmd AI Scout Radar Modal */}
+      <AiDiscoveryRadar 
+        isOpen={isRadarOpen}
+        onClose={() => setIsRadarOpen(false)}
+        currentUser={currentUser}
+        onAddCandidatesToDeck={handleAddScoutedCandidates}
       />
     </div>
   );
